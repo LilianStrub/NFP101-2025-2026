@@ -3,7 +3,7 @@ import random
 def demander_limites():
     verif = False
     while verif == False:
-        mini = int(input("Entrez une borne minimale : "))
+        mini = int(input("\nEntrez une borne minimale : "))
         maxi = int(input("Entrez une borne maximale : "))
         if mini > maxi:
             print("La borne minimale ne peut pas être supérieure à la borne maximale.")
@@ -49,7 +49,6 @@ def jouer_une_partie():
         analyser_proposition(proposition, secret)
     print("\nBravo !")
     print(f"Vous avez trouvé le nombre en {nbessais} essais.")
-    demander_rejouer()
     
 def demander_rejouer():
     reponse = input("\nVoulez-vous rejouer ? (o/n) : ")
@@ -59,5 +58,7 @@ def demander_rejouer():
         return False
 
 if __name__ == "__main__":
-    print("=== Bienvenue dans le jeu du Nombre Mystère ===\n")
+    print("\n\n=== Bienvenue dans le jeu du Nombre Mystère ===\n")
     jouer_une_partie()
+    while demander_rejouer():
+        jouer_une_partie()
