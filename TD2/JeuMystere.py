@@ -3,26 +3,42 @@ import random
 def demander_limites():
     verif = False
     while verif == False:
-        mini = int(input("Entrez une borne minimale : "))
-        maxi = int(input("Entrez une borne maximale : "))
+        while True:
+            entree = input("Entrez une borne minimale : ")
+            if entree.isdigit():
+                mini = int(entree)
+                break
+            else:
+                print("Erreur : veuillez entrer un nombre entier positif.\n")
+            
+        while True:
+            entree = input("Entrez une borne maximale : ")
+            if entree.isdigit():
+                maxi = int(entree)
+                break
+            else:
+                print("Erreur : veuillez entrer un nombre entier positif.\n")
+        
         if mini > maxi:
-            print("La borne minimale ne peut pas être supérieure à la borne maximale.")
+            print("La borne minimale ne peut pas être supérieure à la borne maximale.\n")
         else:
             verif = True
-            return mini, maxi
+    return mini, maxi
     
 def tirer_nombre_mystere(mini, maxi):
     return random.randint(mini, maxi)
 
 def demander_proposition(mini, maxi):
-    verif = False
-    while verif == False:
-        proposition = int(input(f"Quel est le nombre secret (entre {mini} et {maxi}) ? "))
-        if mini <= proposition <= maxi:
-            verif = True
-            return proposition
+    while True:
+        entree = input(f"Quel est le nombre secret (entre {mini} et {maxi}) ? ")
+        if entree.isdigit():
+            proposition = int(entree)
+            if mini <= proposition <= maxi:
+                return proposition
+            else:
+                print(f"Veuillez entrer un nombre entre {mini} et {maxi}.\n")
         else:
-            print(f"Veuillez entrer un nombre entre {mini} et {maxi}.")
+            print("Erreur : veuillez entrer un nombre entier positif.\n")
             
 def analyser_proposition(proposition, secret):
     if proposition < secret:
@@ -49,15 +65,22 @@ def jouer_une_partie():
         analyser_proposition(proposition, secret)
     print("\nBravo !")
     print(f"Vous avez trouvé le nombre en {nbessais} essais.")
-    demander_rejouer()
     
 def demander_rejouer():
-    reponse = input("\nVoulez-vous rejouer ? (o/n) : ")
-    if reponse.lower() == 'o':
-        return True
-    else:
-        return False
+    reponse = ''
+    while reponse not in ['o', 'n']:
+        reponse = input("\nVoulez-vous rejouer ? (o/n) : ")
+        if reponse.lower() == 'o':
+            return True
+        elif reponse.lower() == 'n':
+            return False
+        else:
+            print("Veuillez répondre par 'o' pour oui ou 'n' pour non.\n")
 
 if __name__ == "__main__":
     print("=== Bienvenue dans le jeu du Nombre Mystère ===\n")
-    jouer_une_partie()
+    while True:
+        jouer_une_partie()
+        if not demander_rejouer():
+            print("\nMerci d'avoir joué ! Au revoir.")
+            break
