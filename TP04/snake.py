@@ -1,5 +1,5 @@
-class Snake:
-    
+class Snake:       
+    "Test"
 class Food:
     
 class Game:
