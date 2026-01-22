@@ -1,6 +1,6 @@
 import pygame
-from TP04.classes.Snake import Snake
-from TP04.classes.Food import Food
+from classes.Snake import Snake
+from classes.Food import Food
 
 class Game:
     def __init__(self, width, height):

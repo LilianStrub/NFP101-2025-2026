@@ -1,4 +1,4 @@
-from TP04.classes.Entity import Entity
+from classes.Entity import Entity
 
 # Définition de la classe MovingEntity qui hérite de Entity
 class MovingEntity(Entity):

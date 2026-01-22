@@ -1,4 +1,4 @@
-from TP04.classes.MovingEntity import MovingEntity
+from classes.MovingEntity import MovingEntity
 
 # Définition de la classe Snake qui hérite de MovingEntity
 class Snake(MovingEntity):

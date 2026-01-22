@@ -1,4 +1,4 @@
-from TP04.classes.MovingEntity import MovingEntity
+from classes.MovingEntity import MovingEntity
 
 # Définition de la classe Food qui hérite de MovingEntity
 class Food(MovingEntity):
