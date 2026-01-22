@@ -1,48 +1,58 @@
+from TP04.classes.MovingEntity import MovingEntity
+
+# Définition de la classe Snake qui hérite de MovingEntity
 class Snake(MovingEntity):
+
     def __init__(self, x, y):
+        """
+        Constructeur de la classe Snake.
+        Initialise la position initiale et le corps du serpent.
+        @param x: position initiale en x
+        @param y: position initiale en y
+        """
         super().__init__(x, y)
         self._body = [(x, y)]
         self._grow_pending = 0
-    
-    # Insère une nouvelle tête et renvoie la position de la tête
-    @classmethod
+
     def update(self):
-        # Calculate new head position
+        """
+        Met à jour la position du serpent.
+        Retourne True si game over, False sinon.
+        """
         new_head = (self.x + self._dx, self.y + self._dy)
-        self._body.insert(0, new_head)  # Ajoute une nouvelle tête au début de la liste
-        
+
+        # Collision avec les murs
+        if (new_head[0] < 0 or new_head[0] >= 800 or
+            new_head[1] < 0 or new_head[1] >= 600):
+            return True
+
+        # Collision avec lui-même
+        if new_head in self._body:
+            return True
+
+        # Déplacement
+        self._body.insert(0, new_head)
+
         if self._grow_pending > 0:
-            self._grow_pending -= 1  # Diminue le compteur
+            self._grow_pending -= 1
         else:
-            self._body.pop()  # Retire le dernier segment si pas en croissance
-        
-        self.x, self.y = new_head  # Met à jour la position actuelle
+            self._body.pop()
 
-        return new_head
+        self.x, self.y = new_head
+        return False
 
-    # Dessine chaque segment du serpent
-    @classmethod
     def draw(self, screen):
-        for segment in self._body:
-            rect = (segment[0], segment[1], self.width, self.height)
-            screen.draw_rect(rect, color=(0, 255, 0))  # Draw each segment in green
+        """
+        Dessine chaque segment du serpent.
+        :param screen: surface de dessin
+        """
+        for x, y in self._body:
+            rect = (x, y, self.width, self.height)
+            screen.draw_rect(rect, color=(0, 255, 0))
 
-    @classmethod
-    def move(self):
-        # Update the position of the snake based on its direction
-        new_head = (self.position[0] + self.direction[0], self.position[1] + self.direction[1])
-        self.segments.insert(0, new_head)  # Add new head position
-        self.segments.pop()  # Remove the last segment to maintain length
-        self.position = new_head
-
-    # Augmente la taille du serpent via la variable _grow_pending
-    @classmethod
     def grow(self, n):
+        """
+        Augmente la taille du serpent.
+        :param n: nombre de segments à ajouter
+        """
         self._grow_pending += n
-
-    @classmethod
-    def change_direction(self, new_direction):
-        # Change the direction of the snake
-        self.direction = new_direction
-    
-from TP04.classes.MovingEntity import MovingEntity
