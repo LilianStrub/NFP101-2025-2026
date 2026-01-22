@@ -1,4 +1,5 @@
 import pygame
+import random
 from classes.Snake import Snake
 from classes.Food import Food
 
@@ -21,9 +22,11 @@ class Game:
         self.score = 0
 
         self.snake = Snake(400, 300)
-        self.food = Food()
-
-        self.entities = [self.food, self.snake]
+        
+        x = random.randrange(0, self.width, 20)
+        y = random.randrange(0, self.height, 20)
+        self.food = Food(x, y)
+        self.entities = [self.snake, self.food]
 
     def handle_events(self):
         """

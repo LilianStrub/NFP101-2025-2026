@@ -1,3 +1,4 @@
+import pygame
 from classes.MovingEntity import MovingEntity
 
 # Définition de la classe Snake qui hérite de MovingEntity
@@ -48,7 +49,7 @@ class Snake(MovingEntity):
         """
         for x, y in self._body:
             rect = (x, y, self.width, self.height)
-            screen.draw_rect(rect, color=(0, 255, 0))
+            pygame.draw.rect(screen, (0, 255, 0), rect)
 
     def grow(self, n):
         """

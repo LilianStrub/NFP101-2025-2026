@@ -1,3 +1,4 @@
+import pygame
 from classes.MovingEntity import MovingEntity
 
 # Définition de la classe Food qui hérite de MovingEntity
@@ -9,17 +10,18 @@ class Food(MovingEntity):
         @param x: position initiale en x
         @param y: position initiale en y
         """
-        super().__init__()
-        self.x = x
-        self.y = y
+        super().__init__(x,y)
 
     def draw(self, screen):
         """
         Dessine la nourriture.
         :param screen: surface de dessin
         """
-        rect = (self.x, self.y, self.width, self.height)
-        screen.draw_rect(rect, color=(255, 0, 0))
+        pygame.draw.rect(
+            screen,
+            (255, 0, 0),
+            (self.x, self.y, self.width, self.height)
+        )
         
     def pos(self):
         """
