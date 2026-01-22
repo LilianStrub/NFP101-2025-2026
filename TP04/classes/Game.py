@@ -1,7 +1,7 @@
-from TP04.classes.Food import Food
 import pygame
+from TP04.classes.Snake import Snake
+from TP04.classes.Food import Food
 
-# Définition de la classe Game
 class Game:
     def __init__(self, width, height):
         """
@@ -11,43 +11,68 @@ class Game:
         :param height: hauteur du jeu
         """
         pygame.init()
-        self.score = 0
-        self.food = Food()
-        self.entities = [self.food, self.snake]
+
         self.width = width
         self.height = height
-    
-    def handle_events(self, events):
+        self.screen = pygame.display.set_mode((width, height))
+        pygame.display.set_caption("Snake")
+
+        self.clock = pygame.time.Clock()
+        self.score = 0
+
+        self.snake = Snake(400, 300)
+        self.food = Food()
+
+        self.entities = [self.food, self.snake]
+
+    def handle_events(self):
         """
-        Gère les événements du jeu.
-        :param events: liste des événements
+        Gère les événements du jeu au clavier.
         """
-        for event in events:
-            if event.type == 'QUIT':
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
                 self.quit_game()
-    
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_UP:
+                    self.snake.set_direction(0, -1)
+                elif event.key == pygame.K_DOWN:
+                    self.snake.set_direction(0, 1)
+                elif event.key == pygame.K_LEFT:
+                    self.snake.set_direction(-1, 0)
+                elif event.key == pygame.K_RIGHT:
+                    self.snake.set_direction(1, 0)
+
     def update(self):
         """
         Met à jour les déplacements du serpent via les entities
         """
-        for entity in self.entities:
-            entity.update()
+        game_over = self.snake.update()
+        if game_over:
+            self.quit_game()
 
-    def draw(self, screen):
+    def draw(self):
         """
         Met à jour les éléments graphiques du jeu.
-        :param screen: surface de dessin
         """
+        self.screen.fill((0, 0, 0))
         for entity in self.entities:
-            entity.draw(screen)
-    
+            entity.draw(self.screen)
+        pygame.display.flip()
+
     def run(self):
         """
         Démarre la boucle principale du jeu.
         """
-        running = True
-        while running:
-            events = self.get_events()
-            self.handle_events(events)
+        while True:
+            self.handle_events()
             self.update()
-            self.draw(None)  # Remplacer None par l'objet écran réel
+            self.draw()
+            self.clock.tick(10)
+
+    def quit_game(self):
+        """
+        Quitte le jeu proprement.
+        """
+        pygame.quit()
+        exit()
