@@ -83,7 +83,8 @@ class Game:
 
     def quit_game(self):
         """
-        Quitte le jeu proprement.
+        Affiche "Game Over" et quitte le jeu proprement.
         """
+        print(f"Game Over ! Ton score : {self.score}")
         pygame.quit()
         exit()

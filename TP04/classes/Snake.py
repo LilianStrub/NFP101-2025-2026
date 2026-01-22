@@ -44,12 +44,31 @@ class Snake(MovingEntity):
 
     def draw(self, screen):
         """
-        Dessine chaque segment du serpent.
+        Dessine chaque segment du serpent de plus en plus petit (1% en moins).
+        La tête comporte 2 yeux et une langue rouge avec la queue du serpent plus fine.
         :param screen: surface de dessin
         """
-        for x, y in self._body:
-            rect = (x, y, self.width, self.height)
-            pygame.draw.rect(screen, (0, 255, 0), rect)
+        segment_size = self.CELL_SIZE
+        for index, (seg_x, seg_y) in enumerate(self._body):
+            # Calcul de la taille du segment
+            size = int(segment_size * (0.99 ** index))
+            offset = (self.CELL_SIZE - size) // 2
+            pygame.draw.rect(screen, (0, 255, 0), (seg_x + offset, seg_y + offset, size, size))
+
+            # Dessiner les yeux et la langue pour la tête
+            if index == 0:
+                eye_radius = size // 10
+                eye_offset_x = size // 4
+                eye_offset_y = size // 4
+                # Yeux
+                pygame.draw.circle(screen, (0, 0, 0), (seg_x + offset + eye_offset_x, seg_y + offset + eye_offset_y), eye_radius)
+                pygame.draw.circle(screen, (0, 0, 0), (seg_x + offset + size - eye_offset_x, seg_y + offset + eye_offset_y), eye_radius)
+                # Langue
+                tongue_width = size // 6
+                tongue_height = size // 4
+                tongue_x = seg_x + offset + (size - tongue_width) // 2
+                tongue_y = seg_y + offset + size
+                pygame.draw.rect(screen, (255, 0, 0), (tongue_x, tongue_y, tongue_width, tongue_height))
 
     def grow(self, n):
         """
