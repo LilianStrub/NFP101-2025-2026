@@ -21,7 +21,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.score = 0
 
-        self.snake = Snake(400, 300)
+        self.snake = Snake(200, 200)
         
         x = random.randrange(0, self.width, 20)
         y = random.randrange(0, self.height, 20)
@@ -53,6 +53,14 @@ class Game:
         game_over = self.snake.update()
         if game_over:
             self.quit_game()
+            
+        # Collision serpent / nourriture
+        if self.snake._body[0] == (self.food.x, self.food.y):
+            self.snake.grow(1)  # augmente _grow_pending de 1
+            self.score += 1
+            # repositionner la nourriture
+            self.food.x = random.randrange(0, self.width, self.food.width)
+            self.food.y = random.randrange(0, self.height, self.food.height)
 
     def draw(self):
         """

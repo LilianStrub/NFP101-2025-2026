@@ -23,8 +23,8 @@ class Snake(MovingEntity):
         new_head = (self.x + self._dx, self.y + self._dy)
 
         # Collision avec les murs
-        if (new_head[0] < 0 or new_head[0] >= 800 or
-            new_head[1] < 0 or new_head[1] >= 600):
+        if (new_head[0] < 0 or new_head[0] >= 400 or
+            new_head[1] < 0 or new_head[1] >= 400):
             return True
 
         # Collision avec lui-même
@@ -53,7 +53,22 @@ class Snake(MovingEntity):
 
     def grow(self, n):
         """
-        Augmente la taille du serpent.
+        Augmente la taille du serpent via la variable _grow_pending.
         :param n: nombre de segments à ajouter
         """
         self._grow_pending += n
+    
+    def head_pos(self):
+        """
+        Retourne la position actuelle de la tête du serpent.
+        :return: tuple (x, y)
+        """
+        return (self.x, self.y)
+    
+    def length(self):
+        """
+        Retourne la longueur actuelle du serpent.
+        :return: longueur du serpent
+        """
+        return len(self._body)
+    
