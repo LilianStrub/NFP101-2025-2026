@@ -21,7 +21,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.score = 0
 
-        self.snake = Snake(200, 200)
+        self.snake = Snake(width/2, height/2)
         
         x = random.randrange(0, self.width, 20)
         y = random.randrange(0, self.height, 20)
