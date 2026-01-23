@@ -8,25 +8,46 @@ class Game:
     def __init__(self, width, height):
         """
         Constructeur de la classe Game.
-        Initialise la largeur et la hauteur du jeu.
+        Initialise la largeur et la hauteur du jeu (avec des bordures de couleurs blanches pour délimiter l'aire de jeu).
+        Initialise Pygame, la fenêtre de jeu, l'horloge et les entités
         :param width: largeur du jeu
         :param height: hauteur du jeu
         """
         pygame.init()
+        
         self.state = "menu" 
-        self.width = width
-        self.height = height
-        self.screen = pygame.display.set_mode((width, height))
+        
+        self.game_width = width
+        self.game_height = height
+        
+        self.window_width = width * 2
+        self.window_height = height * 2
+        
+        self.TITLE_FONT_SIZE = 42
+        self.TEXT_FONT_SIZE = 24
+
+
+        self.screen = pygame.display.set_mode((self.window_width, self.window_height))
+
         pygame.display.set_caption("Snake")
+        
+        # Surface de jeu
+        self.game_surface = pygame.Surface((self.game_width, self.game_height))
+        
+        self.game_x = (self.window_width - self.game_width) // 2
+        self.game_y = (self.window_height - self.game_height) // 2
 
         self.clock = pygame.time.Clock()
+        self.speed = 5
+        
         self.score = 0
 
-        self.snake = Snake(width/2, height/2)
+        self.snake = Snake(self.game_width // 2, self.game_height // 2)
         
-        x = random.randrange(0, self.width, 20)
-        y = random.randrange(0, self.height, 20)
+        x = random.randrange(0, self.game_width, 20)
+        y = random.randrange(0, self.game_height, 20)
         self.food = Food(x, y)
+        
         self.entities = [self.snake, self.food]
 
     def draw_menu(self):
@@ -35,17 +56,17 @@ class Game:
         """
 
         self.screen.fill((0, 0, 0))
-        font_title = pygame.font.Font(None, 74)
-        font_text = pygame.font.Font(None, 36)
+        font_title = pygame.font.Font(None, self.TITLE_FONT_SIZE)
+        font_text = pygame.font.Font(None, self.TEXT_FONT_SIZE)
         
         # Titre
         title = font_title.render("Le super SNAKE", True, (0, 255, 0))
-        title_rect = title.get_rect(center=(self.width/2, self.height/3))
+        title_rect = title.get_rect(center=(self.window_width // 2, self.window_height // 3))
         self.screen.blit(title, title_rect)
         
         # Instructions
         text = font_text.render("Appuyez sur ESPACE pour jouer", True, (255, 255, 255))
-        text_rect = text.get_rect(center=(self.width/2, self.height/2))
+        text_rect = text.get_rect(center=(self.window_width // 2, self.window_height // 2))
         self.screen.blit(text, text_rect)
         
         pygame.display.flip()
@@ -54,24 +75,24 @@ class Game:
         """
         Affiche l'écran de fin de jeu.
         """
-
-        self.screen.fill((0, 0, 0))
-        font_title = pygame.font.Font(None, 74)
-        font_text = pygame.font.Font(None, 36)
+        
+        self.screen.fill((20, 20, 20))
+        font_title = pygame.font.Font(None, self.TITLE_FONT_SIZE)
+        font_text = pygame.font.Font(None, self.TEXT_FONT_SIZE)
         
         # Game Over
-        title = font_title.render("LOOSER", True, (255, 0, 0))
-        title_rect = title.get_rect(center=(self.width/2, self.height/3))
+        title = font_title.render("GAME OVER", True, (255, 0, 0))
+        title_rect = title.get_rect(center=(self.window_width // 2, self.window_height // 3))
         self.screen.blit(title, title_rect)
         
         # Score
         score_text = font_text.render(f"Score: {self.score}", True, (255, 255, 255))
-        score_rect = score_text.get_rect(center=(self.width/2, self.height/2))
+        score_rect = score_text.get_rect(center=(self.window_width // 2, self.window_height // 2))
         self.screen.blit(score_text, score_rect)
         
         # Rejouer
         restart = font_text.render("Appuyez sur ESPACE pour rejouer", True, (255, 255, 255))
-        restart_rect = restart.get_rect(center=(self.width/2, self.height*2/3))
+        restart_rect = restart.get_rect(center=(self.window_width // 2, self.window_height * 2 // 3))
         self.screen.blit(restart, restart_rect)
         
         pygame.display.flip()
@@ -81,18 +102,22 @@ class Game:
         Réinitialise l'état du jeu pour une nouvelle partie.
         """
 
-        self.snake = Snake(self.width/2, self.height/2)
-        x = random.randrange(0, self.width, 20)
-        y = random.randrange(0, self.height, 20)
+        self.snake = Snake(self.game_width // 2, self.game_height // 2)
+        
+        x = random.randrange(0, self.game_width, 20)
+        y = random.randrange(0, self.game_height, 20)
         self.food = Food(x, y)
+        
         self.entities = [self.snake, self.food]
         self.score = 0
         self.state = "playing"
 
     def handle_events(self):
         """
-        Lit les événements Pygame et gère les entrées utilisateur.
+        Gère les événements Pygame.
+        Si le joueur ferme la fenêtre ou appuie sur la touche échap, quitte le jeu.
         """
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
@@ -102,6 +127,8 @@ class Game:
                 if self.state in ["menu", "game_over"]:
                     if event.key == pygame.K_SPACE:
                         self.reset_game()
+                    elif event.key == pygame.K_ESCAPE: 
+                        self.quit_game()
                 
                 # En jeu : contrôles du serpent
                 elif self.state == "playing":
@@ -113,11 +140,16 @@ class Game:
                         self.snake.set_direction(-1, 0)
                     elif event.key == pygame.K_RIGHT:
                         self.snake.set_direction(1, 0)
-                        
+                    elif event.key == pygame.K_ESCAPE: 
+                        self.quit_game()
+                    
+                
     def update(self):
         """
-        Met à jour les déplacements du serpent via les entities
+        Met à jour l'état du jeu.
+        Gère les mises à jour du serpent et les collisions.
         """
+        
         if self.state != "playing":
             return
             
@@ -130,17 +162,39 @@ class Game:
         if self.snake._body[0] == (self.food.x, self.food.y):
             self.snake.grow(1)  # augmente _grow_pending de 1
             self.score += 1
-            # repositionner la nourriture
-            self.food.x = random.randrange(0, self.width, self.food.width)
-            self.food.y = random.randrange(0, self.height, self.food.height)
+            # repositionner la nourriture (sauf sur le serpent)
+            while True:
+                x = random.randrange(0, self.game_width, 20)
+                y = random.randrange(0, self.game_height, 20)
+                if (x, y) not in self.snake._body:
+                    self.food.respawn(x // self.food.CELL_SIZE, y // self.food.CELL_SIZE)
+                    break
 
     def draw(self):
         """
         Met à jour les éléments graphiques du jeu.
         """
-        self.screen.fill((0, 0, 0))
+        # Fond de la fenêtre
+        self.screen.fill((30, 30, 30))
+
+        # Fond de l'aire de jeu
+        self.game_surface.fill((0, 0, 0))
+
+        # Dessin des entités SUR la surface de jeu
         for entity in self.entities:
-            entity.draw(self.screen)
+            entity.draw(self.game_surface)
+
+        # Affichage centré
+        self.screen.blit(self.game_surface, (self.game_x, self.game_y))
+
+        # Bordure blanche
+        pygame.draw.rect(
+            self.screen,
+            (255, 255, 255),
+            (self.game_x, self.game_y, self.game_width, self.game_height),
+            2  # épaisseur
+        )
+
         pygame.display.flip()
 
     def run(self):
@@ -153,4 +207,13 @@ class Game:
                 self.update()
                 self.draw()
             elif self.state == "game_over":
-                self.draw_game_over()               
+                self.draw_game_over()
+                
+            self.clock.tick(self.speed)
+
+    def quit_game(self):
+        """
+        Quitte le jeu proprement.
+        """
+        pygame.quit()
+        exit()

@@ -23,8 +23,8 @@ class Snake(MovingEntity):
         new_head = (self.x + self._dx, self.y + self._dy)
 
         # Collision avec les murs
-        if (new_head[0] < 0 or new_head[0] >= 400 or
-            new_head[1] < 0 or new_head[1] >= 400):
+        if (new_head[0] < 0 or new_head[0] >= 160 or
+            new_head[1] < 0 or new_head[1] >= 160):
             return True
 
         # Collision avec lui-même
