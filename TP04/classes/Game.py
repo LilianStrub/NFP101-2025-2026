@@ -111,6 +111,16 @@ class Game:
         self.entities = [self.snake, self.food]
         self.score = 0
         self.state = "playing"
+    
+    def pause_game(self):
+        """
+        Met le jeu en pause quand on appuie sur ECHAP et si on rappuie sur ECHAP, le jeu reprend la où il en était.
+        """
+        if self.state == "playing":
+            self.state = "paused"
+        elif self.state == "paused":
+            self.state = "playing"
+        
 
     def handle_events(self):
         """
@@ -131,18 +141,19 @@ class Game:
                         self.quit_game()
                 
                 # En jeu : contrôles du serpent
-                elif self.state == "playing":
-                    if event.key == pygame.K_UP:
-                        self.snake.set_direction(0, -1)
-                    elif event.key == pygame.K_DOWN:
-                        self.snake.set_direction(0, 1)
-                    elif event.key == pygame.K_LEFT:
-                        self.snake.set_direction(-1, 0)
-                    elif event.key == pygame.K_RIGHT:
-                        self.snake.set_direction(1, 0)
-                    elif event.key == pygame.K_ESCAPE: 
-                        self.quit_game()
-                    
+                elif self.state in ["playing", "paused"]:
+                    if event.key == pygame.K_ESCAPE:
+                        self.pause_game()
+
+                    if self.state == "playing":
+                        if event.key == pygame.K_UP:
+                            self.snake.set_direction(0, -1)
+                        elif event.key == pygame.K_DOWN:
+                            self.snake.set_direction(0, 1)
+                        elif event.key == pygame.K_LEFT:
+                            self.snake.set_direction(-1, 0)
+                        elif event.key == pygame.K_RIGHT:
+                            self.snake.set_direction(1, 0)     
                 
     def update(self):
         """
@@ -196,6 +207,32 @@ class Game:
         )
 
         pygame.display.flip()
+        
+    def draw_pause(self):
+        # Dessiner le jeu figé
+        self.draw()
+
+##################### CODE IA #####################
+        # Overlay semi-transparent
+        overlay = pygame.Surface((self.window_width, self.window_height))
+        overlay.set_alpha(150)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+###################################################
+        
+        font_title = pygame.font.Font(None, self.TITLE_FONT_SIZE)
+        font_text = pygame.font.Font(None, self.TEXT_FONT_SIZE)
+
+        pause_text = font_title.render("PAUSE", True, (255, 255, 255))
+        pause_rect = pause_text.get_rect(center=(self.window_width // 2, self.window_height // 2 - 30))
+        self.screen.blit(pause_text, pause_rect)
+
+        info = font_text.render("Appuyez sur ECHAP pour reprendre", True, (200, 200, 200))
+        info_rect = info.get_rect(center=(self.window_width // 2, self.window_height // 2 + 20))
+        self.screen.blit(info, info_rect)
+
+        pygame.display.flip()
+
 
     def run(self):
         while True:
@@ -206,9 +243,11 @@ class Game:
             elif self.state == "playing":
                 self.update()
                 self.draw()
+            elif self.state == "paused":
+                self.draw_pause()
             elif self.state == "game_over":
                 self.draw_game_over()
-                
+     
             self.clock.tick(self.speed)
 
     def quit_game(self):
