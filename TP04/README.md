@@ -1,3 +1,26 @@
+# Snake - Guide du jeu
+
+## Installation
+```bash
+pip install pygame
+py snake.py dans /TP04
+```
+
+## Commandes
+- **↑** : Haut
+- **↓** : Bas
+- **←** : Gauche
+- **→** : Droite
+-**ESCAPE** : Pause
+-**SPACE** : Lancer/rejouer
+
+## Règles
+- Manger la nourriture (rouge) pour grandir
+- Éviter les murs et votre propre corps
+- Chaque nourriture = +1 point
+- Demi-tour interdit (impossible de revenir sur soi-même)
+- Déplacement sur grille (20x20 pixels)
+
 # Analyse du jeu Snake - Réponses
 
 ## 1. Rôles respectifs
