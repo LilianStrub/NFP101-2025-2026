@@ -113,7 +113,11 @@ class Game:
                         self.snake.set_direction(-1, 0)
                     elif event.key == pygame.K_RIGHT:
                         self.snake.set_direction(1, 0)
+                        
     def update(self):
+        """
+        Met à jour les déplacements du serpent via les entities
+        """
         if self.state != "playing":
             return
             
