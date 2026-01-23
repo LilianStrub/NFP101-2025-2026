@@ -90,6 +90,9 @@ class Game:
         self.state = "playing"
 
     def handle_events(self):
+        """
+        Lit les événements Pygame et gère les entrées utilisateur.
+        """
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.quit_game()
