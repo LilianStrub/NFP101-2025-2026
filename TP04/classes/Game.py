@@ -140,20 +140,20 @@ class Game:
                     elif event.key == pygame.K_ESCAPE: 
                         self.quit_game()
                 
-                # En jeu : contrôles du serpent
+                # En jeu : contrôles du serpent (ne peut pas faire demi-tour)
                 elif self.state in ["playing", "paused"]:
                     if event.key == pygame.K_ESCAPE:
                         self.pause_game()
 
                     if self.state == "playing":
-                        if event.key == pygame.K_UP:
+                        if event.key == pygame.K_UP and self.snake._dy == 0:
                             self.snake.set_direction(0, -1)
-                        elif event.key == pygame.K_DOWN:
+                        elif event.key == pygame.K_DOWN and self.snake._dy == 0:
                             self.snake.set_direction(0, 1)
-                        elif event.key == pygame.K_LEFT:
+                        elif event.key == pygame.K_LEFT and self.snake._dx == 0:
                             self.snake.set_direction(-1, 0)
-                        elif event.key == pygame.K_RIGHT:
-                            self.snake.set_direction(1, 0)     
+                        elif event.key == pygame.K_RIGHT and self.snake._dx == 0:
+                            self.snake.set_direction(1, 0)   
                 
     def update(self):
         """
@@ -188,10 +188,10 @@ class Game:
         # Fond de la fenêtre
         self.screen.fill((30, 30, 30))
 
-        # Fond de l'aire de jeu
+        # Fond d'écran de jeu
         self.game_surface.fill((0, 0, 0))
 
-        # Dessin des entités SUR la surface de jeu
+        # Dessin des entités sur la surface de jeu
         for entity in self.entities:
             entity.draw(self.game_surface)
 
