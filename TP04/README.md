@@ -19,7 +19,7 @@ py snake.py dans /TP04
 - Éviter les murs et votre propre corps
 - Chaque nourriture = +1 point
 - Demi-tour interdit (impossible de revenir sur soi-même)
-- Déplacement sur grille (20x20 pixels)
+- Déplacement sur grille (160*160 pixels)
 
 # Analyse du jeu Snake - Réponses
 
