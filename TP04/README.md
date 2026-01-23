@@ -1,5 +1,9 @@
 # Snake - Guide du jeu
 
+## Auteurs
+
+Lilian STRUB & Merouan MENEU
+
 ## Installation
 ```bash
 pip install pygame
