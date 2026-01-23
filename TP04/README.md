@@ -11,8 +11,8 @@ py snake.py dans /TP04
 - **↓** : Bas
 - **←** : Gauche
 - **→** : Droite
--**ESCAPE** : Pause
--**SPACE** : Lancer/rejouer
+- **ESCAPE** : Pause
+- **SPACE** : Lancer/rejouer
 
 ## Règles
 - Manger la nourriture (rouge) pour grandir
