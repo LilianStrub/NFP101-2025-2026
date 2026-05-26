@@ -1,0 +1,13 @@
+{
+  "num_decks": 6,
+  "penetration": 0.75,
+  "blackjack_payout": 1.5,
+  "dealer_hits_soft_17": false,
+  "double_after_split": true,
+  "surrender_allowed": true,
+  "resplit_aces": false,
+  "max_splits": 3,
+  "min_bet": 1.0,
+  "max_bet": 500.0,
+  "starting_bankroll": 100.0
+}

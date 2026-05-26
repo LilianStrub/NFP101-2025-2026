@@ -1,0 +1,17 @@
+gitignore# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Virtual environment
+venv/
+.venv/
+
+# IDE
+.idea/
+.vscode/

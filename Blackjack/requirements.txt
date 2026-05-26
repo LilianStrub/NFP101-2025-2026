@@ -1,0 +1,5 @@
+# Aucune dépendance externe requise pour l'exécution.
+# Tout le code utilise uniquement la bibliothèque standard de Python 3.10+.
+#
+# Pour développer et lancer les tests :
+#   pytest>=7.0

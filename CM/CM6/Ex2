@@ -1,0 +1,19 @@
+class Voiture:
+    def __init__(self, couleur = None, nationalite = None):
+        self.couleur = couleur
+        self.nationalite = nationalite
+    def afficher_info(self):
+        print(f"Couleur: {self.couleur}, Nationalité: {self.nationalite}")
+
+class Voiture_FR(Voiture):
+    def __init__(self):
+        super().__init__()
+        self.nationalite = "FR"
+    def afficher_info(self):
+        print(f"Couleur: {self.couleur}, Nationalité: {self.nationalite}, Marque: Renault")
+        
+Voiture1 = Voiture("Rouge", "DE")
+Voiture1.afficher_info()
+
+Voiture2 = Voiture_FR()
+Voiture2.afficher_info()

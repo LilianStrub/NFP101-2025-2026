@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=64.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blackjack"
+version = "1.0.0"
+description = "Jeu de Blackjack en Python orienté objet avec aide aux stratégies de décision"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Projet NFP01 — CNAM"}]
+keywords = ["blackjack", "card-counting", "basic-strategy", "OOP"]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+blackjack = "blackjack.__main__:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["blackjack*"]
