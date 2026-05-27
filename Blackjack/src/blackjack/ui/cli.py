@@ -173,7 +173,7 @@ class UI:
         self.learning_mode: bool = False
         self._explained_actions: set = set()
         # Petite pause pour le suspense entre 2 cartes du croupier.
-        self.draw_delay: float = 0.35
+        self.draw_delay: float = 2.0
 
     # ------------------------------------------------------------------ #
     # Sorties basiques (compatibles avec l'ancienne API)
@@ -392,6 +392,8 @@ class UI:
         self.console.print(Padding(_hand_panel(dealer.hand, "Croupier"), (0, 0, 0, 2)))
 
     def show_dealer_bust(self, dealer: Dealer) -> None:
+        if self.draw_delay:
+            time.sleep(self.draw_delay)
         self.console.print()
         self.console.print(_figlet("BUST !", style="danger", font="small"))
 
