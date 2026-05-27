@@ -210,9 +210,6 @@ def main(argv: Optional[list] = None) -> int:
             else:
                 ui.error("Choix invalide.")
     except (KeyboardInterrupt, EOFError):
-        # Restaure l'affichage si on a été interrompu pendant une manche.
-        if getattr(ui, "live", None) is not None:
-            ui._stop_live()
         ui.write()
         ui.success("Au revoir !")
         return 0
