@@ -63,7 +63,9 @@ le cours **NFP01 / CNAM** (Adrien Escourrou) :
 
 ## 🛠 Installation
 
-Le projet n'a **aucune dépendance externe** ; seul Python 3.10 ou plus est requis.
+Python 3.10 ou plus est requis. L'installation tire automatiquement deux
+dépendances pour l'interface : **rich** (panneaux, tables, couleurs RGB)
+et **pyfiglet** (gros titres ASCII).
 
 ```bash
 # 1) Récupérer le code
@@ -75,9 +77,14 @@ python -m venv .venv
 source .venv/bin/activate          # Linux / macOS
 .venv\Scripts\activate             # Windows
 
-# 3) Installer en mode développement
+# 3) Installer en mode développement (tire rich + pyfiglet)
 pip install -e .
 ```
+
+> 💡 **Rendu optimal** : pour profiter pleinement des cartes Unicode et
+> des emojis, utilisez un terminal moderne avec une police monospace
+> supportant les caractères étendus, par exemple
+> *Cascadia Code*, *Fira Code*, *JetBrains Mono* ou *MesloLGS NF*.
 
 ---
 
@@ -91,35 +98,43 @@ python -m blackjack
 blackjack
 ```
 
-Le menu principal s'affiche :
+Le menu principal s'affiche en grosses lettres ASCII dorées et propose :
 
 ```
-╔═══════════════════════════════════╗
-║  BLACKJACK — Menu Principal       ║
-╚═══════════════════════════════════╝
-  1. Démarrer une nouvelle partie
-  2. Comparer les stratégies (simulation)
-  3. À propos / aide
-  0. Quitter
+  1   Démarrer une nouvelle partie
+  2   Règles du jeu
+  3   Comparer les stratégies (simulation)
+  4   À propos / aide
+  0   Quitter
 ```
 
 ### Démarrer une partie
 
-1. Saisissez votre nom et votre solde de départ.
-2. Choisissez si vous voulez l'aide d'une stratégie.
-3. Si oui : sélectionnez la stratégie dans la liste affichée.
-4. Misez puis jouez votre main : `h` (Hit), `s` (Stand), `d` (Double),
-   `p` (Split), `r` (Surrender).
+1. Saisissez votre solde de départ.
+2. Activez ou non le **mode apprentissage** (conseil + explications des
+   actions affichés à chaque tour).
+3. Sinon, choisissez votre stratégie d'aide dans la liste.
+4. Misez puis jouez votre main avec les lettres `h` / `s` / `d` / `p` / `r`
+   ou en tapant le mot entier : `tirer`, `rester`, `doubler`, `séparer`,
+   `abandonner`.
 
-À chaque coup, le conseil de la stratégie choisie s'affiche en magenta :
+À chaque coup, le conseil de la stratégie s'affiche dans un panneau magenta :
 
 ```
-    💡 Conseil       : Doubler (D)
+╭──────────────────────────────────────╮
+│  💡 Conseil : Doubler  (D)           │
+╰──────────────────────────────────────╯
 ```
+
+### Règles du jeu
+
+Le mode 2 affiche un récapitulatif complet (objectif, valeur des cartes,
+déroulement, actions, paiements, règles françaises) dans des panneaux
+encadrés.
 
 ### Comparer les stratégies
 
-Le mode 2 simule N manches (par défaut 2 000) pour chaque stratégie et
+Le mode 3 simule N manches (par défaut 2 000) pour chaque stratégie et
 affiche un tableau récapitulatif (EV, win %, blackjacks).
 
 ---
@@ -165,7 +180,7 @@ blackjack/
 │       ├── players/         ← BasePlayer, Dealer, HumanPlayer
 │       ├── strategies/      ← toutes les stratégies (registre central)
 │       ├── game/            ← Rules, Round, Game, Statistics
-│       ├── ui/              ← interface CLI (ANSI couleurs)
+│       ├── ui/              ← interface CLI (Rich + pyfiglet)
 │       └── utils/           ← logger, chargeur de config
 └── tests/                   ← tests unitaires & intégration
 ```
@@ -174,7 +189,8 @@ blackjack/
 
 ## 🧪 Tests
 
-Les tests ne nécessitent que la bibliothèque standard. Lancement :
+Les tests utilisent uniquement `unittest` (stdlib) — aucun rendu Rich n'est
+sollicité car les UI sont remplacées par des stubs en mode test. Lancement :
 
 ```bash
 # Depuis la racine du projet
@@ -198,9 +214,12 @@ Les tests couvrent :
 
 ## 🔍 Choix techniques
 
-- **Aucune dépendance externe** — n'utilise que la stdlib Python 3.10+.
-- **Couleurs ANSI** plutôt qu'une bibliothèque (Colorama / Rich) :
-  fonctionne sur tous les terminaux modernes y compris Windows 10+.
+- **Dépendances minimales** : seules `rich` et `pyfiglet` sont requises,
+  toutes deux pour l'affichage CLI (panneaux, tables, gros titres ASCII).
+  Le moteur de jeu lui-même reste 100 % stdlib.
+- **Rich** plutôt qu'ANSI brut : composants prêts à l'emploi (`Panel`,
+  `Table`, `Columns`) et couleurs RGB pour un rendu cohérent sur tous
+  les terminaux modernes (macOS, Linux, Windows 10+).
 - **Patron Stratégie** : une `Strategy` abstraite + 8 implémentations,
   toutes interchangeables sans modifier le moteur (`Game`/`Round`). C'est
   l'illustration directe du **polymorphisme**.

@@ -12,7 +12,7 @@ from typing import Optional
 
 from .game import Game
 from .players import HumanPlayer
-from .strategies import STRATEGIES, ManualStrategy, Strategy
+from .strategies import STRATEGIES, BasicStrategy, ManualStrategy, Strategy
 from .ui import UI
 from .utils import configure_logging, load_rules
 
@@ -25,22 +25,40 @@ def _play_session(ui: UI) -> None:
 
     # Configuration du joueur.
     ui.header("Configuration du joueur")
-    name = input("Quel est votre nom ? ").strip() or "Joueur"
     bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
                             minimum=rules.min_bet)
-    use_advice = ui.ask_yes_no(
-        "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
-        default=True,
-    )
 
-    strategy: Strategy = ManualStrategy()
-    if use_advice:
-        _, strategy = ui.choose_strategy()
+    # Mode apprentissage : pensé pour les débutants.
+    ui.write()
+    ui.info("Mode apprentissage : affiche le conseil de la stratégie de base à "
+            "chaque tour et explique chaque action la première fois qu'elle apparaît.")
+    learning = ui.ask_yes_no("Activer le mode apprentissage ?", default=True)
 
-    player = HumanPlayer(name=name, bankroll=bankroll, strategy=strategy)
+    if learning:
+        strategy: Strategy = BasicStrategy()
+        ui.success("Mode apprentissage activé — stratégie de base utilisée comme guide.")
+        ui.learning_mode = True
+        ui._explained_actions.clear()
+        use_advice = True
+    else:
+        use_advice = ui.ask_yes_no(
+            "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
+            default=True,
+        )
+        strategy = ManualStrategy()
+        if use_advice:
+            _, strategy = ui.choose_strategy()
+        ui.learning_mode = False
+
+    player = HumanPlayer(name="Joueur", bankroll=bankroll, strategy=strategy)
     player.show_advice = use_advice and not isinstance(strategy, ManualStrategy)
 
     game = Game(rules=rules, player=player, strategy=strategy, ui=ui)
+
+    # Mise par défaut suggérée pour un débutant : 1% du solde initial,
+    # bornée par les limites min/max de mise du casino.
+    beginner_bet = max(rules.min_bet, round(bankroll * 0.01, 2))
+    beginner_bet = min(beginner_bet, rules.max_bet)
 
     # Boucle de jeu.
     while True:
@@ -53,9 +71,10 @@ def _play_session(ui: UI) -> None:
             ui.error("Plus assez d'argent pour miser. Fin de la partie.")
             break
 
-        suggested = game.suggested_bet() if strategy.counts_cards else rules.min_bet
+        manche = game.stats.rounds_played + 1
+        suggested = game.suggested_bet() if strategy.counts_cards else beginner_bet
         bet = ui.ask_float(
-            f"Votre mise (min {rules.min_bet}, max {min(rules.max_bet, player.bankroll)})",
+            f"Manche {manche} — Votre mise (min {rules.min_bet}, max {min(rules.max_bet, player.bankroll)})",
             default=min(suggested, player.bankroll),
             minimum=rules.min_bet,
             maximum=min(rules.max_bet, player.bankroll),
@@ -139,7 +158,7 @@ class _SilentUI:
     def __init__(self, strategy: Strategy) -> None:
         self.strategy = strategy
 
-    def prompt_action(self, player, hand, dealer_up, advice=None):  # noqa: ANN001, ARG002
+    def prompt_action(self, player, hand, dealer_up, advice=None, rules=None, hand_index=0):  # noqa: ANN001, ARG002
         action = self.strategy.recommend(hand, dealer_up)
         # Filet de sécurité : si l'action n'est pas faisable, basculer en sécurité.
         if action.name == "DOUBLE" and not hand.can_double:
@@ -180,8 +199,10 @@ def main(argv: Optional[list] = None) -> int:
             if choice == "1":
                 _play_session(ui)
             elif choice == "2":
-                _compare_strategies(ui)
+                ui.show_rules()
             elif choice == "3":
+                _compare_strategies(ui)
+            elif choice == "4":
                 _about(ui)
             elif choice == "0":
                 ui.success("Au revoir !")
@@ -189,6 +210,9 @@ def main(argv: Optional[list] = None) -> int:
             else:
                 ui.error("Choix invalide.")
     except (KeyboardInterrupt, EOFError):
+        # Restaure l'affichage si on a été interrompu pendant une manche.
+        if getattr(ui, "live", None) is not None:
+            ui._stop_live()
         ui.write()
         ui.success("Au revoir !")
         return 0

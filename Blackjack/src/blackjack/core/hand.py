@@ -130,16 +130,16 @@ class Hand:
 
     @property
     def is_pair(self) -> bool:
-        """Vrai si la main contient exactement deux cartes de même rang.
+        """Vrai si la main contient deux cartes splittables.
 
-        Pour la stratégie de base on considère qu'une paire de 10-V-D-R est
-        une paire « ten value » (jamais splittable de toute façon, mais
-        cohérent côté affichage).
+        Deux cartes de même rang forment toujours une paire. En règle française
+        les cartes de valeur 10 (10, V, D, R) sont considérées équivalentes et
+        peuvent donc être splittées même si leurs rangs diffèrent.
         """
         if len(self.__cards) != 2:
             return False
         c1, c2 = self.__cards
-        return c1.rank is c2.rank
+        return c1.rank is c2.rank or (c1.value == 10 and c2.value == 10)
 
     @property
     def can_double(self) -> bool:
@@ -169,8 +169,7 @@ class Hand:
         if hide_first:
             shown = ["??"] + [str(c) for c in self.__cards[1:]]
             return " ".join(shown)
-        descriptor = "soft" if self.is_soft else "hard"
-        return " ".join(str(c) for c in self.__cards) + f"  ({descriptor} {self.total})"
+        return " ".join(str(c) for c in self.__cards) + f"  ({self.total})"
 
     def __str__(self) -> str:
         return self.describe()

@@ -42,6 +42,16 @@ class Rules:
     max_bet: float = 500.0
     starting_bankroll: float = 100.0
 
+    no_hole_card: bool = True
+    """True = règle ENHC (casinos européens/français) : le croupier ne prend
+    pas de carte cachée ; sa 2e carte est tirée après le tour du joueur."""
+
+    insurance_allowed: bool = True
+    """Proposer l'assurance quand le croupier montre un As."""
+
+    double_hard_9_to_11_only: bool = True
+    """Restreindre le double aux totaux durs 9, 10 et 11 (règle française)."""
+
     def __post_init__(self) -> None:
         if self.num_decks < 1:
             raise ValueError("num_decks doit être >= 1")

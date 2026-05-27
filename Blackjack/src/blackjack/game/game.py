@@ -81,6 +81,7 @@ class Game:
         self.shoe = Shoe(num_decks=rules.num_decks,
                          penetration=rules.penetration,
                          seed=seed)
+        self.shoe.shuffle()  # sabot prêt dès le départ, pas de message parasite
         self.dealer = Dealer(hit_soft_17=rules.dealer_hits_soft_17)
         self.stats = Statistics()
         # On attache l'UI au joueur (rétro-injection), sans écraser une UI

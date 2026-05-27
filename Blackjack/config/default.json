@@ -4,10 +4,13 @@
   "blackjack_payout": 1.5,
   "dealer_hits_soft_17": false,
   "double_after_split": true,
-  "surrender_allowed": true,
+  "surrender_allowed": false,
   "resplit_aces": false,
   "max_splits": 3,
   "min_bet": 1.0,
   "max_bet": 500.0,
-  "starting_bankroll": 100.0
+  "starting_bankroll": 100.0,
+  "no_hole_card": false,
+  "insurance_allowed": true,
+  "double_hard_9_to_11_only": true
 }

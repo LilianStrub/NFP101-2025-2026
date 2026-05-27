@@ -29,15 +29,24 @@ class Dealer(BasePlayer):
 
     @property
     def up_card(self) -> Card:
-        """Carte visible (la deuxième). La première est cachée jusqu'au showdown."""
+        """Carte visible du croupier.
+
+        En mode américain (hole card) : la 2e carte (la 1re est cachée).
+        En mode ENHC : la 1re (et seule) carte pendant le tour du joueur.
+        Dans les deux cas, cards[0] suffit quand le croupier n'a qu'une carte.
+        """
         cards = self.hand.cards
-        if len(cards) < 2:
-            raise RuntimeError("Le croupier n'a pas encore reçu ses deux cartes")
+        if not cards:
+            raise RuntimeError("Le croupier n'a pas encore de carte")
+        if len(cards) == 1:
+            # ENHC : la seule carte est la carte visible.
+            return cards[0]
+        # Américain : la 1re carte est la hole card, la 2e est la carte visible.
         return cards[1]
 
     @property
     def hole_card(self) -> Card:
-        """Carte cachée (la première donnée)."""
+        """Carte cachée (la première donnée, mode américain uniquement)."""
         cards = self.hand.cards
         if not cards:
             raise RuntimeError("Le croupier n'a pas encore de carte cachée")

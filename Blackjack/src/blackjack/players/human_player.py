@@ -29,13 +29,14 @@ class HumanPlayer(BasePlayer):
         self.show_advice: bool = strategy is not None and not strategy.__class__.__name__.startswith("Manual")
         self.ui: "Optional[UI]" = None  # injecté après création.
 
-    def decide(self, hand: Hand, dealer_up: Card) -> Action:
+    def decide(self, hand: Hand, dealer_up: Card, rules=None,
+               hand_index: int = 0) -> Action:
         if self.ui is None:
             raise RuntimeError(
                 "Aucune UI n'a été attachée au joueur — impossible de décider"
             )
-        # Recommandation polymorphe : aucune connaissance de l'impl. concrète.
         advice = None
         if self.show_advice and self.strategy is not None:
             advice = self.strategy.recommend(hand, dealer_up)
-        return self.ui.prompt_action(self, hand, dealer_up, advice=advice)
+        return self.ui.prompt_action(self, hand, dealer_up, advice=advice,
+                                     rules=rules, hand_index=hand_index)

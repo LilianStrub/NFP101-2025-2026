@@ -22,15 +22,25 @@ class HeadlessUI:
     def __init__(self, strategy):
         self.strategy = strategy
 
-    def prompt_action(self, player, hand, dealer_up, advice=None):
+    def prompt_action(self, player, hand, dealer_up, advice=None, rules=None, hand_index=0):
         action = self.strategy.recommend(hand, dealer_up)
-        if action is Action.DOUBLE and not hand.can_double:
-            return Action.HIT
+        if action is Action.DOUBLE:
+            can_double = hand.can_double and (
+                rules is None
+                or not getattr(rules, "double_hard_9_to_11_only", False)
+                or (not hand.is_soft and hand.total in (9, 10, 11))
+            )
+            if not can_double:
+                return Action.HIT
         if action is Action.SPLIT and not hand.can_split:
             return Action.HIT
-        if action is Action.SURRENDER and not hand.can_surrender:
-            return Action.HIT
+        if action is Action.SURRENDER:
+            if not hand.can_surrender or not getattr(rules, "surrender_allowed", True):
+                return Action.HIT
         return action
+
+    def prompt_insurance(self, player, max_insurance: float) -> float:
+        return 0.0  # pas d'assurance en mode headless
 
     # Callbacks no-op
     def show_initial_deal(self, *a, **k): pass
@@ -38,6 +48,8 @@ class HeadlessUI:
     def show_dealer_draw(self, *a, **k): pass
     def show_action(self, *a, **k): pass
     def show_shuffle(self, *a, **k): pass
+    def show_insurance_result(self, *a, **k): pass
+    def show_dealer_bust(self, *a, **k): pass
 
 
 class TestEndToEnd(unittest.TestCase):
