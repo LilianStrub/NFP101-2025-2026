@@ -46,10 +46,13 @@ class HeadlessUI:
     def narrate(self, *a, **k): pass
     def show_pre_deal(self, *a, **k): pass
     def show_deal_step(self, *a, **k): pass
+    def show_split_step(self, *a, **k): pass
     def show_initial_deal(self, *a, **k): pass
     def show_dealer_reveal(self, *a, **k): pass
+    def show_showdown(self, *a, **k): pass
     def show_dealer_draw(self, *a, **k): pass
     def show_action(self, *a, **k): pass
+    def show_player_hand(self, *a, **k): pass
     def show_shuffle(self, *a, **k): pass
     def show_insurance_result(self, *a, **k): pass
     def show_dealer_bust(self, *a, **k): pass

@@ -113,7 +113,7 @@ class Round:
 
         # Le croupier tire maintenant sa 2e carte (et les suivantes si besoin).
         if self.ui is not None:
-            self.ui.narrate("Le croupier tire enfin sa deuxième carte.")
+            self.ui.narrate("Le croupier tire enfin sa deuxième carte.", pause=False)
         self._deal_card(self.dealer.hand)
         dealer_bj = self.dealer.hand.is_blackjack
 
@@ -181,8 +181,10 @@ class Round:
         if up.is_ace and self.rules.insurance_allowed:
             self._offer_insurance(initial_hand)
 
-        # Peek silencieux : vérification du blackjack croupier.
-        if self.ui is not None:
+        # Le croupier ne vérifie sa carte cachée que si sa carte visible peut
+        # compléter un Blackjack (un As ou une carte à 10).
+        peek_possible = up.is_ace or up.value == 10
+        if peek_possible and self.ui is not None:
             self.ui.narrate("Le croupier jette un œil discret à sa carte cachée "
                             "pour vérifier s'il a un Blackjack.")
         dealer_bj = self.dealer.hand.is_blackjack
@@ -193,8 +195,9 @@ class Round:
             if self._insurance_bet > 0:
                 self.player.credit(self._insurance_bet * 3)
             if self.ui is not None:
-                self.ui.narrate("Le croupier a un Blackjack ! Il dévoile sa carte cachée.")
-                self.ui.show_dealer_reveal(self.dealer, revealed=hole)
+                self.ui.narrate("Le croupier a un Blackjack ! Il dévoile sa carte cachée.",
+                                pause=False)
+                self.ui.show_showdown(self.player, self.dealer)
                 if self._insurance_bet > 0:
                     self.ui.show_insurance_result(True, self._insurance_bet)
             return self._settle(player_blackjack=player_bj, dealer_blackjack=True)
@@ -206,7 +209,10 @@ class Round:
         # Tour du joueur — si blackjack naturel, afficher les mains sans actions.
         if not player_bj:
             if self.ui is not None:
-                self.ui.narrate("Pas de Blackjack pour le croupier. À vous de jouer.")
+                if peek_possible:
+                    self.ui.narrate("Pas de Blackjack pour le croupier. À vous de jouer.")
+                else:
+                    self.ui.narrate("À vous de jouer.")
             self._play_player_hands()
         elif self.ui is not None:
             self.ui.narrate("Vous avez un Blackjack naturel ! Vous êtes payé immédiatement.")
@@ -215,7 +221,7 @@ class Round:
         # Révélation de la hole card.
         self.strategy.observe(hole)
         if self.ui is not None:
-            self.ui.narrate("Le croupier dévoile sa carte cachée.")
+            self.ui.narrate("Le croupier dévoile sa carte cachée.", pause=False)
             self.ui.show_dealer_reveal(self.dealer, revealed=hole)
         # Blackjack joueur : le croupier ne joue pas, le joueur gagne immédiatement.
         if not player_bj:
@@ -259,13 +265,41 @@ class Round:
 
     def _play_one_hand(self, hand: Hand, hand_index: int = 0) -> None:
         """Joue une main jusqu'à STAND, BUST ou 21."""
+        last_action: Optional[Action] = None
         while not hand.is_done:
             action = self.player.decide(hand, self.dealer.up_card,
                                         rules=self.rules,
                                         hand_index=hand_index)
             self._apply_action(hand, action)
+            last_action = action
             if self.ui is not None:
                 self.ui.show_action(self.player, hand, action)
+                # Tirage : on annonce la distribution puis on laisse un léger
+                # suspense avant la révélation de la carte (au tour suivant).
+                if action is Action.HIT:
+                    self.ui.narrate("Le croupier vous distribue une carte.",
+                                    pause=False)
+                    if not hand.is_done:
+                        self.ui.pause_suspense()
+        if self.ui is None:
+            return
+        # La main s'est terminée sur un tirage qui dépasse 21 : suspense, puis
+        # on la montre (avec la carte de trop) et on annonce qu'elle est brûlée.
+        if hand.is_bust:
+            self.ui.pause_suspense()
+            self.ui.show_player_hand(self.player, hand)
+            self.ui.narrate("Vous avez dépassé 21 : votre main est brûlée.",
+                            pause=False)
+        # Double : une seule carte est tirée puis on s'arrête — on montre la main.
+        elif last_action is Action.DOUBLE:
+            self.ui.narrate("Vous avez doublé : une seule carte est tirée, "
+                            "puis la main s'arrête.", pause=False)
+            self.ui.pause_suspense()
+            self.ui.show_player_hand(self.player, hand)
+        # Tirage atteignant exactement 21 : la main s'arrête, on la révèle.
+        elif last_action is Action.HIT:
+            self.ui.pause_suspense()
+            self.ui.show_player_hand(self.player, hand)
 
     def _apply_action(self, hand: Hand, action: Action) -> None:
         if action is Action.HIT:
@@ -316,9 +350,22 @@ class Round:
         # Le joueur paie une seconde mise égale à la première.
         self.player.debit(hand.bet)
         self.player.add_hand(new_hand)
-        # Une nouvelle carte est distribuée à chacune des deux mains.
+
+        # Animation : la paire se sépare en deux mains, puis chacune reçoit une carte.
+        if self.ui is not None:
+            self.ui.narrate("Vous séparez votre paire en deux mains distinctes.")
+            self.ui.show_split_step(self.player)
+
         self._deal_card(hand)
+        if self.ui is not None:
+            self.ui.narrate("Une nouvelle carte pour la première main.", pause=False)
+            self.ui.show_split_step(self.player)
+
         self._deal_card(new_hand)
+        if self.ui is not None:
+            self.ui.narrate("Une nouvelle carte pour la seconde main.", pause=False)
+            self.ui.show_split_step(self.player)
+
         # Règle classique : une seule carte par As splittée.
         if hand.cards[0].is_ace:
             hand.stand()

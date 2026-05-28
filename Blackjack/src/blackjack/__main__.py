@@ -20,37 +20,22 @@ logger = logging.getLogger(__name__)
 
 
 def _play_session(ui: UI) -> None:
-    """Boucle principale : configure la partie et enchaîne les manches."""
+    """Partie normale : le joueur choisit l'aide d'une stratégie et les animations."""
     rules = load_rules()
 
-    # Configuration du joueur.
     ui.header("Configuration du joueur")
     bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
                             minimum=rules.min_bet)
 
-    # Mode apprentissage : pensé pour les débutants.
-    ui.write()
-    ui.info("Mode apprentissage : affiche le conseil de la stratégie de base à "
-            "chaque tour et explique chaque action la première fois qu'elle apparaît.")
-    learning = ui.ask_yes_no("Activer le mode apprentissage ?", default=True)
+    use_advice = ui.ask_yes_no(
+        "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
+        default=True,
+    )
+    strategy: Strategy = ManualStrategy()
+    if use_advice:
+        _, strategy = ui.choose_strategy()
+    ui.learning_mode = False
 
-    if learning:
-        strategy: Strategy = BasicStrategy()
-        ui.success("Mode apprentissage activé — stratégie de base utilisée comme guide.")
-        ui.learning_mode = True
-        ui._explained_actions.clear()
-        use_advice = True
-    else:
-        use_advice = ui.ask_yes_no(
-            "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
-            default=True,
-        )
-        strategy = ManualStrategy()
-        if use_advice:
-            _, strategy = ui.choose_strategy()
-        ui.learning_mode = False
-
-    # Animations : option indépendante du mode apprentissage.
     ui.write()
     ui.info("Animations : distribution carte par carte et suspense sur les "
             "tirages du croupier. Désactivez-les pour un jeu plus rapide.")
@@ -60,13 +45,42 @@ def _play_session(ui: UI) -> None:
     player.show_advice = use_advice and not isinstance(strategy, ManualStrategy)
 
     game = Game(rules=rules, player=player, strategy=strategy, ui=ui)
+    _game_loop(ui, game, player, strategy, rules, bankroll)
 
+
+def _tutorial_session(ui: UI) -> None:
+    """Didacticiel : tout est commenté (narration + conseil + explications),
+    animations activées, pour apprendre le jeu en débutant."""
+    rules = load_rules()
+
+    ui.header("Didacticiel — apprendre en jouant")
+    ui.info("Chaque action à l'écran est commentée par le croupier, le conseil "
+            "de la stratégie de base s'affiche à chaque tour, et chaque choix "
+            "possible est expliqué. Idéal pour découvrir le Blackjack.")
+    ui.write()
+    bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
+                            minimum=rules.min_bet)
+
+    strategy: Strategy = BasicStrategy()
+    ui.learning_mode = True
+    ui._explained_actions.clear()
+    ui.set_animations(True)  # animations + narration : indispensables au didacticiel
+
+    player = HumanPlayer(name="Joueur", bankroll=bankroll, strategy=strategy)
+    player.show_advice = True
+
+    game = Game(rules=rules, player=player, strategy=strategy, ui=ui)
+    _game_loop(ui, game, player, strategy, rules, bankroll)
+
+
+def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
+               strategy: Strategy, rules, bankroll: float) -> None:
+    """Boucle de manches partagée entre la partie normale et le didacticiel."""
     # Mise par défaut suggérée pour un débutant : 1% du solde initial,
     # bornée par les limites min/max de mise du casino.
     beginner_bet = max(rules.min_bet, round(bankroll * 0.01, 2))
     beginner_bet = min(beginner_bet, rules.max_bet)
 
-    # Boucle de jeu.
     while True:
         if player.bankroll < rules.min_bet:
             ui.error("Plus assez d'argent pour miser. Fin de la partie.")
@@ -180,10 +194,13 @@ class _SilentUI:
     def narrate(self, *a, **k): pass                   # noqa: E704
     def show_pre_deal(self, *a, **k): pass             # noqa: E704
     def show_deal_step(self, *a, **k): pass            # noqa: E704
+    def show_split_step(self, *a, **k): pass           # noqa: E704
     def show_initial_deal(self, *a, **k): pass        # noqa: D401, E704
     def show_dealer_reveal(self, *a, **k): pass       # noqa: E704
+    def show_showdown(self, *a, **k): pass            # noqa: E704
     def show_dealer_draw(self, *a, **k): pass         # noqa: E704
     def show_action(self, *a, **k): pass              # noqa: E704
+    def show_player_hand(self, *a, **k): pass         # noqa: E704
     def show_shuffle(self, *a, **k): pass             # noqa: E704
     def show_round_results(self, *a, **k): pass       # noqa: E704
 
@@ -209,10 +226,12 @@ def main(argv: Optional[list] = None) -> int:
             if choice == "1":
                 _play_session(ui)
             elif choice == "2":
-                ui.show_rules()
+                _tutorial_session(ui)
             elif choice == "3":
-                _compare_strategies(ui)
+                ui.show_rules()
             elif choice == "4":
+                _compare_strategies(ui)
+            elif choice == "5":
                 _about(ui)
             elif choice == "0":
                 ui.success("Au revoir !")
