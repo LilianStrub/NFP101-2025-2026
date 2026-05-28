@@ -71,12 +71,27 @@ class Round:
     # ------------------------------------------------------------------ #
     def _play_enhc(self, initial_hand: Hand) -> List[Tuple[Hand, Outcome, float]]:
         """Distribution et résolution sans carte cachée (règle européenne)."""
-        # Distribution : joueur → croupier (1 carte) → joueur
+        if self.ui is not None:
+            self.ui.narrate("Nouvelle donne. Ici le croupier ne prend pas de carte "
+                            "cachée : il ne tirera sa 2e carte qu'après votre tour.")
+            self.ui.show_pre_deal(self.player, self.dealer, hide_hole=False)
+        if self.ui is not None:
+            self.ui.narrate("Votre première carte.", pause=False)
         self._deal_card(initial_hand)
-        self._deal_card(self.dealer.hand)
-        self._deal_card(initial_hand)
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=False)
 
         if self.ui is not None:
+            self.ui.narrate("La carte visible du croupier.", pause=False)
+        self._deal_card(self.dealer.hand)
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=False)
+
+        if self.ui is not None:
+            self.ui.narrate("Votre deuxième carte.", pause=False)
+        self._deal_card(initial_hand)
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=False)
             self.ui.show_initial_deal(self.player, self.dealer)
 
         # Blackjack joueur détecté dès le départ (le croupier n'a qu'une carte,
@@ -87,11 +102,18 @@ class Round:
         if self.rules.insurance_allowed and self.dealer.hand.cards[0].is_ace:
             self._offer_insurance(initial_hand)
 
-        # Tour du joueur — même si blackjack naturel, on skip directement.
+        # Tour du joueur — si blackjack naturel, afficher les mains sans actions.
         if not player_bj:
+            if self.ui is not None:
+                self.ui.narrate("À vous de jouer.")
             self._play_player_hands()
+        elif self.ui is not None:
+            self.ui.narrate("Vous avez un Blackjack naturel !")
+            self.ui.show_deal_state(self.player, self.dealer)
 
         # Le croupier tire maintenant sa 2e carte (et les suivantes si besoin).
+        if self.ui is not None:
+            self.ui.narrate("Le croupier tire enfin sa deuxième carte.")
         self._deal_card(self.dealer.hand)
         dealer_bj = self.dealer.hand.is_blackjack
 
@@ -120,16 +142,36 @@ class Round:
     # ------------------------------------------------------------------ #
     def _play_peek(self, initial_hand: Hand) -> List[Tuple[Hand, Outcome, float]]:
         """Distribution avec hole card et peek silencieux (casinos français)."""
+        if self.ui is not None:
+            self.ui.narrate("Nouvelle donne. Le croupier distribue les cartes une à une.")
+            self.ui.show_pre_deal(self.player, self.dealer, hide_hole=True)
         # Hole card d'abord, cachée et non observée par le compteur.
+        if self.ui is not None:
+            self.ui.narrate("Le croupier se donne d'abord une carte face cachée, "
+                            "la « carte du trou ».", pause=False)
         self._deal_card(self.dealer.hand)
         hole = self.dealer.hand.cards[0]
         self.strategy._running_count -= self.strategy.card_value(hole)
-
-        self._deal_card(initial_hand)             # joueur 1re carte
-        self._deal_card(self.dealer.hand)         # up card visible
-        self._deal_card(initial_hand)             # joueur 2e carte
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=True)
 
         if self.ui is not None:
+            self.ui.narrate("Votre première carte, face visible.", pause=False)
+        self._deal_card(initial_hand)             # joueur 1re carte
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=True)
+
+        if self.ui is not None:
+            self.ui.narrate("Le croupier retourne sa carte visible.", pause=False)
+        self._deal_card(self.dealer.hand)         # up card visible
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=True)
+
+        if self.ui is not None:
+            self.ui.narrate("Votre deuxième carte, face visible.", pause=False)
+        self._deal_card(initial_hand)             # joueur 2e carte
+        if self.ui is not None:
+            self.ui.show_deal_step(self.player, self.dealer, hide_hole=True)
             self.ui.show_initial_deal(self.player, self.dealer)
 
         player_bj = initial_hand.is_blackjack
@@ -140,6 +182,9 @@ class Round:
             self._offer_insurance(initial_hand)
 
         # Peek silencieux : vérification du blackjack croupier.
+        if self.ui is not None:
+            self.ui.narrate("Le croupier jette un œil discret à sa carte cachée "
+                            "pour vérifier s'il a un Blackjack.")
         dealer_bj = self.dealer.hand.is_blackjack
 
         if dealer_bj:
@@ -148,6 +193,7 @@ class Round:
             if self._insurance_bet > 0:
                 self.player.credit(self._insurance_bet * 3)
             if self.ui is not None:
+                self.ui.narrate("Le croupier a un Blackjack ! Il dévoile sa carte cachée.")
                 self.ui.show_dealer_reveal(self.dealer, revealed=hole)
                 if self._insurance_bet > 0:
                     self.ui.show_insurance_result(True, self._insurance_bet)
@@ -157,13 +203,19 @@ class Round:
         if self._insurance_bet > 0 and self.ui is not None:
             self.ui.show_insurance_result(False, self._insurance_bet)
 
-        # Tour du joueur (sauf blackjack naturel).
+        # Tour du joueur — si blackjack naturel, afficher les mains sans actions.
         if not player_bj:
+            if self.ui is not None:
+                self.ui.narrate("Pas de Blackjack pour le croupier. À vous de jouer.")
             self._play_player_hands()
+        elif self.ui is not None:
+            self.ui.narrate("Vous avez un Blackjack naturel ! Vous êtes payé immédiatement.")
+            self.ui.show_deal_state(self.player, self.dealer)
 
         # Révélation de la hole card.
         self.strategy.observe(hole)
         if self.ui is not None:
+            self.ui.narrate("Le croupier dévoile sa carte cachée.")
             self.ui.show_dealer_reveal(self.dealer, revealed=hole)
         # Blackjack joueur : le croupier ne joue pas, le joueur gagne immédiatement.
         if not player_bj:
@@ -178,7 +230,7 @@ class Round:
         max_ins = initial_hand.bet / 2
         if self.ui is None:
             return
-        amount = self.ui.prompt_insurance(self.player, max_ins)
+        amount = self.ui.prompt_insurance(self.player, self.dealer, max_ins)
         if amount > 0:
             amount = min(amount, max_ins)
             self.player.debit(amount)
@@ -281,6 +333,12 @@ class Round:
         ]
         if not live_hands:
             return
+        if self.ui is not None:
+            regle = ("Le croupier tire tant qu'il n'a pas 17, puis s'arrête "
+                     "(il reste même sur un 17 « soft »)."
+                     if not self.rules.dealer_hits_soft_17 else
+                     "Le croupier tire tant qu'il n'a pas 17 (et sur un 17 « soft »).")
+            self.ui.narrate(regle)
         while True:
             action = self.dealer.decide(self.dealer.hand, self.dealer.up_card)
             if action is Action.STAND:

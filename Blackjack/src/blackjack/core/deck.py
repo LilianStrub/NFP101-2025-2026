@@ -68,12 +68,26 @@ class Shoe:
         self.__discard.clear()
         self.__needs_shuffle = False
 
+    def burn(self) -> Optional[Card]:
+        """Brûle (défausse) la carte du dessus, comme au casino.
+
+        La carte est écartée sans être jouée ni révélée — elle n'est donc
+        pas observée par les compteurs. Renvoie ``None`` si le sabot est vide.
+        """
+        if not self.__cards:
+            return None
+        card = self.__cards.pop()
+        self.__discard.append(card)
+        return card
+
     def draw(self) -> Card:
         """Tire la carte du dessus du sabot.
 
-        Mélange automatiquement si nécessaire.
+        Le remélange dû à la carte de coupe est géré en début de manche par
+        ``Game`` (jamais en plein milieu d'une main) : ici on ne remélange
+        qu'en dernier recours, si le sabot est réellement vide.
         """
-        if self.__needs_shuffle or not self.__cards:
+        if not self.__cards:
             self.shuffle()
         card = self.__cards.pop()
         self.__discard.append(card)

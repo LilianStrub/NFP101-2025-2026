@@ -50,6 +50,12 @@ def _play_session(ui: UI) -> None:
             _, strategy = ui.choose_strategy()
         ui.learning_mode = False
 
+    # Animations : option indépendante du mode apprentissage.
+    ui.write()
+    ui.info("Animations : distribution carte par carte et suspense sur les "
+            "tirages du croupier. Désactivez-les pour un jeu plus rapide.")
+    ui.set_animations(ui.ask_yes_no("Activer les animations ?", default=True))
+
     player = HumanPlayer(name="Joueur", bankroll=bankroll, strategy=strategy)
     player.show_advice = use_advice and not isinstance(strategy, ManualStrategy)
 
@@ -62,19 +68,20 @@ def _play_session(ui: UI) -> None:
 
     # Boucle de jeu.
     while True:
-        ui.write()
-        ui.show_bankroll(player)
-        if strategy.counts_cards:
-            ui.show_count_status(strategy, game.shoe.decks_remaining)
-
         if player.bankroll < rules.min_bet:
             ui.error("Plus assez d'argent pour miser. Fin de la partie.")
             break
 
+        # En-tête de manche affiché dès que le joueur s'engage, avant la mise.
         manche = game.stats.rounds_played + 1
+        ui.show_round_header(manche)
+        ui.show_bankroll(player)
+        if strategy.counts_cards:
+            ui.show_count_status(strategy, game.shoe.decks_remaining)
+
         suggested = game.suggested_bet() if strategy.counts_cards else beginner_bet
         bet = ui.ask_float(
-            f"Manche {manche} — Votre mise (min {rules.min_bet}, max {min(rules.max_bet, player.bankroll)})",
+            f"Votre mise (min {rules.min_bet}, max {min(rules.max_bet, player.bankroll)})",
             default=min(suggested, player.bankroll),
             minimum=rules.min_bet,
             maximum=min(rules.max_bet, player.bankroll),
@@ -170,6 +177,9 @@ class _SilentUI:
         return action
 
     # Les autres callbacks ne font rien.
+    def narrate(self, *a, **k): pass                   # noqa: E704
+    def show_pre_deal(self, *a, **k): pass             # noqa: E704
+    def show_deal_step(self, *a, **k): pass            # noqa: E704
     def show_initial_deal(self, *a, **k): pass        # noqa: D401, E704
     def show_dealer_reveal(self, *a, **k): pass       # noqa: E704
     def show_dealer_draw(self, *a, **k): pass         # noqa: E704

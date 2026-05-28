@@ -48,7 +48,11 @@ le cours **NFP01 / CNAM** (Adrien Escourrou) :
 ## ⭐ Fonctionnalités
 
 - **Jeu de Blackjack complet** : Hit, Stand, Double, Split, Surrender.
-- **Sabot multi-deck** avec carte de coupe et remélange automatique.
+- **Sabot multi-deck** avec carte de coupe, remélange automatique et brûlage
+  de la première carte après chaque mélange (comme au casino).
+- **Narration pas à pas** (en mode apprentissage) : chaque action de la table
+  est commentée — distribution carte par carte, vérification du croupier,
+  carte de coupe, mélange et brûlage — pour comprendre le déroulement réel.
 - **Règles paramétrables** (S17/H17, DAS, paiement blackjack, etc.).
 - **Aide à la décision en temps réel** selon la stratégie sélectionnée.
 - **8 stratégies** au choix (1 manuelle, 1 de base, 6 comptages).

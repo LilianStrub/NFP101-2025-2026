@@ -39,10 +39,13 @@ class HeadlessUI:
                 return Action.HIT
         return action
 
-    def prompt_insurance(self, player, max_insurance: float) -> float:
+    def prompt_insurance(self, player, dealer, max_insurance: float) -> float:
         return 0.0  # pas d'assurance en mode headless
 
     # Callbacks no-op
+    def narrate(self, *a, **k): pass
+    def show_pre_deal(self, *a, **k): pass
+    def show_deal_step(self, *a, **k): pass
     def show_initial_deal(self, *a, **k): pass
     def show_dealer_reveal(self, *a, **k): pass
     def show_dealer_draw(self, *a, **k): pass

@@ -82,6 +82,7 @@ class Game:
                          penetration=rules.penetration,
                          seed=seed)
         self.shoe.shuffle()  # sabot prêt dès le départ, pas de message parasite
+        self.shoe.burn()     # brûlage de la 1re carte, comme au casino (silencieux)
         self.dealer = Dealer(hit_soft_17=rules.dealer_hits_soft_17)
         self.stats = Statistics()
         # On attache l'UI au joueur (rétro-injection), sans écraser une UI
@@ -96,6 +97,17 @@ class Game:
             if self.ui is not None:
                 self.ui.show_shuffle()
             self.shoe.shuffle()
+            burned = self.shoe.burn()
+            if self.ui is not None:
+                self.ui.narrate(
+                    "La carte de coupe a été atteinte : le croupier remélange "
+                    "tout le sabot pour éviter que les cartes soient prévisibles."
+                )
+                if burned is not None:
+                    self.ui.narrate(
+                        "Il brûle ensuite la première carte (écartée sans la "
+                        "montrer), comme le veut l'usage des casinos."
+                    )
             self.strategy.reset_count()
 
         rnd = Round(self.rules, self.shoe, self.dealer, self.player,

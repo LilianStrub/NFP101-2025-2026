@@ -16,6 +16,7 @@ from typing import List, Optional, Tuple
 import pyfiglet
 from rich.columns import Columns
 from rich.console import Console, Group
+from rich.live import Live
 from rich.padding import Padding
 from rich.panel import Panel
 from rich.table import Table
@@ -87,18 +88,27 @@ def _hidden_card_text() -> Text:
     return Text(body, style="back")
 
 
-def _hand_renderable(hand: Hand, hide_first: bool = False) -> Text:
-    """Combine plusieurs cartes côte à côte dans un seul ``Text`` multi-ligne."""
-    cards = hand.cards
-    if not cards:
-        return Text("(vide)", style="dim")
+def _hand_renderable(hand: Hand, hide_first: bool = False,
+                     add_hidden: bool = False, pad_to: int = 0,
+                     up_card_first: bool = False) -> Text:
+    """Combine plusieurs cartes côte à côte dans un seul ``Text`` multi-ligne.
 
+    ``pad_to`` garantit un minimum de blocs (comblés par des cartes cachées)
+    pour que les panneaux gardent une largeur fixe pendant l'animation.
+    ``up_card_first`` place l'up card (cards[1]) à gauche de la hole card
+    (cards[0]) après révélation, pour conserver un ordre visuel cohérent.
+    """
+    raw = hand.cards
+    if up_card_first and len(raw) >= 2:
+        cards = [raw[1], raw[0]] + list(raw[2:])
+    else:
+        cards = raw
+    _hidden = (["┌─────┐", "│▒▒▒▒▒│", "│▒▒▒▒▒│", "│▒▒▒▒▒│", "└─────┘"], "back")
     card_blocks: List[Tuple[List[str], str]] = []
-    for i, card in enumerate(cards):
-        if hide_first and i == 0:
-            lines = ["┌─────┐", "│▒▒▒▒▒│", "│▒▒▒▒▒│", "│▒▒▒▒▒│", "└─────┘"]
-            card_blocks.append((lines, "back"))
-        else:
+
+    if hide_first:
+        # Cartes visibles (up card et suivantes) à gauche, hole card cachée à droite.
+        for card in cards[1:]:
             rank = card.rank.label
             suit = card.suit.symbol
             lines = [
@@ -110,6 +120,30 @@ def _hand_renderable(hand: Hand, hide_first: bool = False) -> Text:
             ]
             style = "heart" if card.suit.is_red else "spade"
             card_blocks.append((lines, style))
+        card_blocks.append(_hidden)
+    else:
+        for card in cards:
+            rank = card.rank.label
+            suit = card.suit.symbol
+            lines = [
+                "┌─────┐",
+                f"│{rank.ljust(5)}│",
+                f"│  {suit}  │",
+                f"│{rank.rjust(5)}│",
+                "└─────┘",
+            ]
+            style = "heart" if card.suit.is_red else "spade"
+            card_blocks.append((lines, style))
+
+    if add_hidden:
+        card_blocks.append(_hidden)
+
+    # Remplissage jusqu'à pad_to blocs.
+    while len(card_blocks) < pad_to:
+        card_blocks.append(_hidden)
+
+    if not card_blocks:
+        return Text("(vide)", style="dim")
 
     out = Text()
     for row in range(5):
@@ -141,16 +175,35 @@ def _hand_footer(hand: Hand, show_bet: bool = False) -> Text:
 
 
 def _hand_panel(hand: Hand, title: str, hide_first: bool = False,
+                add_hidden: bool = False, pad_to: int = 0,
+                up_card_first: bool = False,
                 show_bet: bool = False, border: str = "felt") -> Panel:
     """Encapsule une main dans un ``Panel`` Rich (cartes + total)."""
-    cards = _hand_renderable(hand, hide_first=hide_first)
+    cards = _hand_renderable(hand, hide_first=hide_first,
+                             add_hidden=add_hidden, pad_to=pad_to,
+                             up_card_first=up_card_first)
     if hide_first:
-        # Masquer le total quand on cache la 1re carte du croupier.
-        body: Group = Group(cards)
-    else:
+        visible = hand.cards[1:]
+        if visible:
+            visible_hand = Hand()
+            for c in visible:
+                visible_hand.add_card(c)
+            body: Group = Group(cards, Text(""), _hand_footer(visible_hand))
+        else:
+            body = Group(cards)
+    elif hand.cards:
         body = Group(cards, Text(""), _hand_footer(hand, show_bet=show_bet))
+    elif show_bet and hand.bet > 0:
+        # Main vide mais mise connue : affiche seulement la mise.
+        bet_line = Text()
+        bet_line.append("Mise : ", style="dim")
+        bet_line.append(f"{hand.bet:.2f}", style="gold")
+        body = Group(cards, Text(""), bet_line)
+    else:
+        body = Group(cards)
     title_text = Text(f" {title} ", style="gold")
-    return Panel(body, title=title_text, border_style=border, padding=(0, 1))
+    return Panel(body, title=title_text, border_style=border, padding=(0, 1),
+                 expand=False)
 
 
 def _figlet(text: str, style: str = "gold", font: str = "slant") -> Text:
@@ -165,6 +218,10 @@ def _figlet(text: str, style: str = "gold", font: str = "slant") -> Text:
 class UI:
     """Interface utilisateur en ligne de commande, rendu Rich."""
 
+    # Délais de suspense quand les animations sont activées (en secondes).
+    DEAL_DELAY: float = 2.0
+    DRAW_DELAY: float = 2.0
+
     def __init__(self, stream=sys.stdout) -> None:  # noqa: ANN001
         self.console = Console(theme=THEME, file=stream, highlight=False)
         self.round_number: int = 0
@@ -172,8 +229,16 @@ class UI:
         # Mode apprentissage : explique chaque action la 1re fois.
         self.learning_mode: bool = False
         self._explained_actions: set = set()
-        # Petite pause pour le suspense entre 2 cartes du croupier.
-        self.draw_delay: float = 2.0
+        # Animations activées par défaut ; pilotent les délais de suspense.
+        self.animations_enabled: bool = True
+        # Délai entre chaque carte à la distribution initiale.
+        self.deal_delay: float = self.DEAL_DELAY
+        # Pause de suspense entre les tirages du croupier en cours de jeu.
+        self.draw_delay: float = self.DRAW_DELAY
+        # Pause de lecture après une ligne de narration (mode apprentissage).
+        self.narration_delay: float = 1.0
+        # Live display pour l'animation de distribution (mis à jour en place).
+        self._deal_live: Optional[Live] = None
 
     # ------------------------------------------------------------------ #
     # Sorties basiques (compatibles avec l'ancienne API)
@@ -199,6 +264,24 @@ class UI:
 
     def success(self, text: str) -> None:
         self.console.print(Text(f"✓  {text}", style="good"))
+
+    def set_animations(self, enabled: bool) -> None:
+        """Active ou désactive les animations (délais de distribution/suspense)."""
+        self.animations_enabled = enabled
+        self.deal_delay = self.DEAL_DELAY if enabled else 0.0
+        self.draw_delay = self.DRAW_DELAY if enabled else 0.0
+
+    def narrate(self, text: str, pause: bool = True) -> None:
+        """Commente une action de la table — uniquement en mode apprentissage.
+
+        ``pause`` ajoute un court temps de lecture. On le met à ``False`` quand
+        un délai existant suit immédiatement (ex. révélation d'une carte).
+        """
+        if not self.animations_enabled:
+            return
+        self.console.print(Text(f"🗣  {text}", style="italic cyan"))
+        if pause and self.narration_delay:
+            time.sleep(self.narration_delay)
 
     # ------------------------------------------------------------------ #
     # Écrans de menus
@@ -365,6 +448,76 @@ class UI:
     def show_initial_deal(self, player: HumanPlayer, dealer: Dealer) -> None:
         self.round_number += 1
         self.tour_number = 0
+        # Termine l'animation Live : la dernière image reste affichée.
+        if self._deal_live is not None:
+            self._deal_live.stop()
+            self._deal_live = None
+
+    def show_round_header(self, number: int) -> None:
+        """Bandeau proéminent de début de manche (unité de jeu de haut niveau)."""
+        self.round_number = number - 1  # show_initial_deal incrémentera à `number`.
+        self.tour_number = 0
+        self.console.print()
+        self.console.print()
+        self.console.rule(
+            Text(f"  ♠  MANCHE {number}  ♠  ", style="bold gold"),
+            characters="═", style="gold",
+        )
+
+    def show_pre_deal(self, player: HumanPlayer, dealer: Dealer,
+                      hide_hole: bool = False) -> None:
+        """Affiche les cadres vides avant la distribution (positions fixes dès le départ)."""
+        self.console.print()
+        player_hand = player.hands[0] if player.hands else Hand()
+        dealer_pad = 2 if hide_hole else 1
+        dealer_panel = _hand_panel(Hand(), "Croupier",
+                                   hide_first=hide_hole, pad_to=dealer_pad, border="felt")
+        player_panel = _hand_panel(player_hand, "Votre main",
+                                   pad_to=2, show_bet=True, border="gold")
+        renderable = Group(dealer_panel, Text(""), player_panel)
+        self._deal_live = Live(renderable, console=self.console,
+                               refresh_per_second=4, transient=True)
+        self._deal_live.start()
+
+    def show_deal_step(self, player: HumanPlayer, dealer: Dealer,
+                       hide_hole: bool = False) -> None:
+        """Met à jour la zone de distribution en place (même case, pas de scroll)."""
+        if self.deal_delay:
+            time.sleep(self.deal_delay)
+        player_hand = player.hands[0] if player.hands else Hand()
+        dealer_pad = 2 if hide_hole else 1
+        dealer_panel = _hand_panel(dealer.hand, "Croupier",
+                                   hide_first=hide_hole, pad_to=dealer_pad, border="felt")
+        player_panel = _hand_panel(player_hand, "Votre main",
+                                   pad_to=2, show_bet=True, border="gold")
+        renderable = Group(dealer_panel, Text(""), player_panel)
+        if self._deal_live is None:
+            self._deal_live = Live(renderable, console=self.console,
+                                   refresh_per_second=4, transient=True)
+            self._deal_live.start()
+        else:
+            self._deal_live.update(renderable)
+
+    def show_deal_state(self, player: HumanPlayer, dealer: Dealer) -> None:
+        """Affiche les deux panneaux (croupier + joueur) sans demander d'action."""
+        self.tour_number += 1
+        label = f"Tour {self.tour_number}"
+        self.console.print()
+        self.console.rule(Text(label, style="cyan"), characters="─", style="dim")
+
+        dealer_hand_shown = Hand()
+        dealer_hand_shown.add_card(dealer.up_card)
+
+        hand = player.hands[0] if player.hands else Hand()
+        cols = Columns(
+            [
+                _hand_panel(dealer_hand_shown, "Croupier", add_hidden=True, border="felt"),
+                _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
+            ],
+            padding=(0, 2),
+            expand=False,
+        )
+        self.console.print(cols)
 
     def show_dealer_reveal(self, dealer: Dealer,
                            revealed: Optional[Card] = None) -> None:
@@ -373,7 +526,9 @@ class UI:
         self.console.print()
         label = "révèle sa carte cachée" if revealed is not None else "tire sa 2e carte"
         self.console.print(Text(f"Croupier {label} :", style="info"))
-        self.console.print(Padding(_hand_panel(dealer.hand, "Croupier"), (0, 0, 0, 2)))
+        self.console.print(Padding(
+            _hand_panel(dealer.hand, "Croupier", up_card_first=True), (1, 0, 0, 2)
+        ))
 
     def show_insurance_result(self, dealer_blackjack: bool,
                               insurance_bet: float) -> None:
@@ -389,7 +544,9 @@ class UI:
         n = len(dealer.hand.cards)
         self.console.print()
         self.console.print(Text(f"Croupier tire sa {n}e carte :", style="info"))
-        self.console.print(Padding(_hand_panel(dealer.hand, "Croupier"), (0, 0, 0, 2)))
+        self.console.print(Padding(
+            _hand_panel(dealer.hand, "Croupier", up_card_first=True), (1, 0, 0, 2)
+        ))
 
     def show_dealer_bust(self, dealer: Dealer) -> None:
         if self.draw_delay:
@@ -490,9 +647,21 @@ class UI:
     # ------------------------------------------------------------------ #
     # Prompt d'assurance — appelé par Round
     # ------------------------------------------------------------------ #
-    def prompt_insurance(self, player: HumanPlayer, max_insurance: float) -> float:
+    def prompt_insurance(self, player: HumanPlayer, dealer: Dealer,
+                         max_insurance: float) -> float:
         """Propose l'assurance ; renvoie la mise prise (0.0 si refus)."""
         self.console.print()
+
+        # Rappel des mains pour décider en connaissance de cause.
+        dealer_hand_shown = Hand()
+        dealer_hand_shown.add_card(dealer.up_card)
+        hand = player.hands[0] if player.hands else Hand()
+        self.console.print(Group(
+            _hand_panel(dealer_hand_shown, "Croupier", add_hidden=True, border="felt"),
+            Text(""),
+            _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
+        ))
+
         self.console.print(Panel(
             Text(f"Le croupier montre un As — Prendre l'assurance ({max_insurance:.2f}) ?",
                  style="warn"),
@@ -518,22 +687,11 @@ class UI:
             label = f"Tour {self.tour_number}"
 
         self.console.print()
-        self.console.rule(Text(label, style="gold"), style="felt")
+        self.console.rule(Text(label, style="cyan"), characters="─", style="dim")
 
-        # Construit une "main du croupier" virtuelle avec uniquement la carte visible.
+        # Main du croupier virtuelle : uniquement la carte visible + hole card cachée.
         dealer_hand_shown = Hand()
         dealer_hand_shown.add_card(dealer_up)
-
-        # Panneaux côte à côte : croupier + joueur.
-        cols = Columns(
-            [
-                _hand_panel(dealer_hand_shown, "Croupier", border="felt"),
-                _hand_panel(hand, f"Votre main", show_bet=True, border="gold"),
-            ],
-            padding=(0, 2),
-            expand=False,
-        )
-        self.console.print(cols)
 
         # Actions autorisées selon les règles.
         can_double = hand.can_double and (
@@ -556,28 +714,36 @@ class UI:
         if can_surrender:
             options.append(("r", Action.SURRENDER))
 
-        # Table d'actions.
+        # Table d'actions (colonne de droite).
         act_tbl = Table(show_header=True, header_style="gold", border_style="felt",
                         padding=(0, 1))
         act_tbl.add_column("Touche", style="gold", justify="center", no_wrap=True)
         act_tbl.add_column("Action", style="warn", no_wrap=True)
-        if self.learning_mode:
+        if self.animations_enabled:
             act_tbl.add_column("Description", style="dim")
         for key, action in options:
             row = [key, action.label]
-            if self.learning_mode:
+            if self.animations_enabled:
                 row.append(_ACTION_HELP[action])
-                self._explained_actions.add(action)
             act_tbl.add_row(*row)
-        self.console.print(act_tbl)
 
+        right_parts: list = [act_tbl]
         if advice is not None:
             advice_panel = Panel(
                 Text(f"💡 Conseil : {advice.label}  ({advice.short})",
                      style="advice"),
                 border_style="advice", padding=(0, 2),
             )
-            self.console.print(advice_panel)
+            right_parts.extend([Text(""), advice_panel])
+
+        # Mise en page : mains empilées à gauche, actions à droite.
+        left = Group(
+            _hand_panel(dealer_hand_shown, "Croupier", add_hidden=True, border="felt"),
+            Text(""),
+            _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
+        )
+        self.console.print(Columns([left, Group(*right_parts)],
+                                   padding=(0, 2), expand=False))
 
         valid_keys = {k: a for k, a in options}
         word_aliases = {
