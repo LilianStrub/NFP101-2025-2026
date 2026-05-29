@@ -300,10 +300,25 @@ Les tests couvrent :
 
 ## 🤖 Usage IA
 
-Conformément à la section 3 du sujet, l'utilisation de l'IA générative
-(Claude) est déclarée. Détail dans
-[`docs/documentation.md`](docs/documentation.md) — section « Utilisation
-de l'IA ».
+Conformément à la section 3 du sujet, l'usage de l'IA générative est **déclaré
+ouvertement**.
+
+- **Outil** : Claude (Anthropic) via l'assistant **Claude Code** ; aucun autre.
+- **Ampleur** : projet développé en binôme avec l'IA *de bout en bout*.
+  **L'intégralité du code (~100 %)** et de la documentation a été générée avec
+  l'IA — **toujours sous ma direction** : chaque fonctionnalité résulte d'une
+  demande précise de ma part, relue, testée et validée (ou refusée).
+- **À quoi** : génération de modules, refactorisation, débogage (ex. boucle
+  infinie sur le split, blocage de la simulation), génération de tests, revue de
+  code, vérification des tables de comptage, rédaction.
+- **Ce que j'ai fait** : choix du sujet et du périmètre, conception de
+  l'architecture et du registre de stratégies, **décisions de règles** (garder
+  le paiement 3:2, mise à plat pour la stratégie de base…), **validation** par le
+  jeu et par les 94 tests, acceptation ou **refus** des propositions de l'IA.
+
+Exemples de prompts, ce que j'ai compris/modifié/validé, et le détail du taux
+d'utilisation : voir [`docs/documentation.md`](docs/documentation.md) §6 (et son
+PDF). Je suis en mesure d'**expliquer chaque partie du code** à l'oral.
 
 ---
 

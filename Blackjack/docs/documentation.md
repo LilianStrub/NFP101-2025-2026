@@ -178,34 +178,79 @@ python -m unittest discover -s tests -v
 
 ## 6. Utilisation de l'IA
 
-### Pourquoi
-- **Génération de squelettes** (boilerplate de classes, docstrings).
-- **Vérification des tables** de stratégie de base et des valeurs de
-  chaque système de comptage en croisant plusieurs sources.
-- **Suggestions de structure** de projet et de patrons de conception.
+> Déclaration conforme à la section 3 du sujet. Cette section est volontairement
+> détaillée et honnête : elle décrit franchement l'ampleur de l'usage de l'IA,
+> ce que l'étudiant a dirigé, compris et validé, ainsi que le taux d'utilisation.
 
-### Ce qu'a apporté l'IA
-- Accélération sur les parties répétitives (énumérations, accesseurs,
-  tests unitaires).
-- Aide à la rédaction des docstrings et de la documentation.
-- Vérification croisée des valeurs (ex : Omega II → 2,3,7=+1 ; 4,5,6=+2 ;
-  8,A=0 ; 9=-1 ; 10..R=-2) via plusieurs sources spécialisées.
+### Outil utilisé
+- **Claude (Anthropic)**, via l'assistant **Claude Code** (pair-programming en
+  ligne de commande, modèles Claude Opus / Sonnet selon les étapes).
+- Aucun autre outil d'IA générative n'a été utilisé.
 
-### Ce qui reste de l'étudiant
-- Choix du sujet et du périmètre.
-- Architecture en couches.
-- Conception du registre des stratégies.
-- Toutes les décisions de design (composition vs héritage, encapsulation,
-  séparation moteur/UI).
+### Ampleur réelle / taux d'utilisation
+Le projet a été développé en **binôme avec l'IA, de bout en bout** : l'étudiant
+définit chaque besoin et pilote l'itération ; l'IA propose le code, explique et
+exécute les tests. Pour être totalement transparent :
+- **Taux d'utilisation : ~100 %.** L'**intégralité du code source** (moteur de
+  jeu, interface, stratégies de comptage, persistance, audio, tests) ainsi que
+  la **documentation et le README** ont été générés ou réécrits avec l'IA.
+- **Tout** a néanmoins été réalisé **sous la direction explicite de l'étudiant**
+  (voir « Pilotage » ci-dessous) : aucune fonctionnalité n'a été ajoutée sans
+  demande, et chaque proposition a été relue, testée et validée — ou refusée.
 
-### Exemples de prompts utilisés
-- « Génère le squelette d'une classe `Card` immuable avec encapsulation
-  forte (attributs privés, propriétés en lecture seule). »
-- « Liste les valeurs de chaque carte pour les comptages Hi-Lo, KO, Hi-Opt
-  I/II, Omega II, Zen, Red 7 en t'appuyant sur les sources de référence
-  (Thorp, Snyder, Carlson). »
-- « Écris la table complète de stratégie de base multi-deck, S17, DAS,
-  surrender tardif autorisé. »
+### Pourquoi l'IA a été utilisée
+- **Génération** de modules complets (cartes, mains, sabot, stratégies, UI).
+- **Refactorisation** (ex. factoriser le rendu des cartes, source unique du
+  palier de mise `BET_RAMP`).
+- **Débogage** (ex. correction d'une **boucle infinie** sur le split au maximum
+  de mains, d'un blocage de la simulation, du double affichage des cartes).
+- **Génération de tests** unitaires et de scénarios reproductibles.
+- **Revue de code** (passes de relecture ciblées « correctness ») et
+  **vérification croisée** des tables de stratégie et des valeurs de comptage.
+- **Rédaction** des docstrings, du README et de cette documentation.
+
+### Pilotage par l'étudiant (ce que j'ai dirigé)
+Chaque évolution provient d'une demande précise de ma part, par exemple :
+amélioration de l'interface pour débutants, mode **Didacticiel**, **musique
+d'ambiance** (puis webradio), **touches d'action en français**, **mise en
+jetons** sans centime, explication du **palier de mise** selon le true count,
+**sauvegarde/reprise** et **records**. J'ai aussi tranché des choix de règles
+(ex. conserver le paiement **3:2**, garder la mise à plat pour la stratégie de
+base car varier la mise sans comptage est sous-optimal).
+
+### Ce que j'ai compris, modifié et validé
+- **Compris** : règles du Blackjack (peek, ENHC, S17, double restreint,
+  assurance), principe des comptages (running count -> true count -> palier de
+  mise), et les 3 piliers POO mis en œuvre.
+- **Validé** : par le jeu (tests manuels à chaque étape) et par la suite
+  automatisée (`python -m unittest`, 94 tests). J'ai accepté ou **rejeté** des
+  propositions de l'IA (ex. refus d'arrondir les gains, choix de l'ordre du
+  menu, disposition des panneaux à l'écran).
+- **Modifié** : ajustements d'ergonomie et de formulation, choix des valeurs de
+  jetons, position des messages d'aide, etc.
+
+### Exemples de prompts réellement utilisés
+- « Améliore l'interface du jeu pour qu'elle soit compréhensible par des joueurs
+  débutants et facile à jouer. »
+- « J'aimerais que la musique d'ambiance soit à l'ambiance d'un casino, calme et
+  agréable… il n'existerait pas des webradios lounge ? »
+- « Les touches des actions devraient être en français (t pour tirer, etc.). »
+- « Rajoute dans le tableau des stratégies à partir de quand augmenter les mises,
+  de combien, et pourquoi. »
+- « J'ai eu un blackjack et le croupier a quand même tiré une carte. » (rapport
+  de bug -> correction).
+- « Regarde tout le code et, quand l'utilisateur doit décider, rends l'info
+  claire pour un débutant. »
+- (commande de revue) « /code-review » pour une relecture orientée bugs.
+
+### Marquage du code généré par IA
+Le **code étant généré à ~100 % par l'IA**, encadrer chaque ligne par des
+marqueurs `# CODE IA` reviendrait à marquer tout le projet et nuirait à la
+lisibilité. Le choix retenu — qui couvre donc l'**ensemble des fichiers** — est
+une **déclaration globale** : tout le code source du projet est généré avec
+Claude (Claude Code), l'étudiant en assurant la conception, la direction, la
+relecture et la validation, et restant **capable d'expliquer chaque partie
+devant le jury**.
 
 ---
 
