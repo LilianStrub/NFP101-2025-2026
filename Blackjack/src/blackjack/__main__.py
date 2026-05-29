@@ -43,7 +43,7 @@ def _play_session(ui: UI) -> None:
 
     use_advice = ui.ask_yes_no(
         "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
-        default=True,
+        default=False,
     )
     strategy: Strategy = ManualStrategy()
     if use_advice:
@@ -187,73 +187,99 @@ def _compare_strategies(ui: UI) -> None:
     ui.info("Un robot joue automatiquement des milliers de mains avec chaque "
             "stratégie, puis on compare leurs résultats.")
     ui.write()
-    ui.write("  • EV par main : gain net moyen par unité misée. Négatif = "
-             "avantage du casino ; proche de 0 ou positif = favorable au joueur.")
-    ui.write("  • Win %       : part de mains gagnées.   • BJ % : part de "
-             "blackjacks naturels.")
+    ui.write(f"  • {'EV par main':<11} : gain net moyen par unité misée. Négatif "
+             "= avantage du casino ; proche de 0 ou positif = favorable au joueur.")
+    ui.write(f"  • {'Win %':<11} : part de mains gagnées.")
+    ui.write(f"  • {'BJ %':<11} : part de blackjacks naturels.")
     ui.write()
     ui.info("La stratégie de base ramène l'EV tout près de l'avantage de la "
             "maison. Les stratégies de comptage MISENT PLUS quand le sabot est "
             "favorable (mise variable selon le « true count ») : leur EV peut "
             "alors devenir meilleure, voire positive.")
     ui.info("Plus le nombre de manches est grand, plus le résultat est fiable.")
-    ui.write()
-
-    n_rounds = ui.ask_int("Combien de manches simuler par stratégie ?",
-                           default=5000, minimum=100, maximum=50000)
-    bet_size = ui.ask_float("Mise de base (unité ; les compteurs misent 1× à 8×)",
-                            default=10.0, minimum=0.5, maximum=1000.0)
 
     rules = load_rules()
-    ui.write()
-    ui.info("Simulation en cours… une ligne s'affiche au fur et à mesure que "
-            "chaque stratégie termine (augmentez le nombre de manches pour plus "
-            "de fiabilité, au prix d'un calcul plus long).")
-    ui.write()
-    ui.write(f"{'Stratégie':<25}{'EV par main':>16}{'Win %':>10}{'BJ %':>10}")
-    ui.write("─" * 61)
-    for key, cls in STRATEGIES.items():
-        if cls is ManualStrategy:
-            continue
-        # Le joueur de simu utilise la *même* stratégie pour décider.
-        strategy = cls()
-        sim_player = HumanPlayer(name="SimBot", bankroll=1e9, strategy=strategy)
-        sim_player.ui = _SilentUI(strategy)
-        game = Game(rules=rules, player=sim_player, strategy=strategy, ui=None)
-        for _ in range(n_rounds):
-            try:
-                game.play_round(_sim_bet(strategy, game, rules, bet_size))
-            except ValueError:
-                break
-        ev = game.stats.expected_value * 100
-        wr = game.stats.win_rate * 100
-        bj = (game.stats.blackjacks / game.stats.hands_played * 100
-              if game.stats.hands_played else 0.0)
-        ui.write(f"{cls.name:<25}{ev:>+15.3f}%{wr:>9.2f}%{bj:>9.2f}%")
-    ui.write()
-    ui.info("Lecture : la stratégie de base mise à plat et tend vers l'avantage "
-            "de la maison (≈ -0,5 %). Les comptages varient leur mise sur les "
-            "sabots favorables et peuvent dégager une EV positive — c'est "
-            "l'essence du comptage.")
-    ui.info("Attention : avec une mise variable, la variance est forte. Sur peu "
-            "de manches, le hasard domine (un compteur peut sembler moins bon). "
-            "Augmentez fortement le nombre de manches (p. ex. 50000) pour voir "
-            "l'avantage se confirmer.")
+
+    # Boucle : on peut enchaîner plusieurs simulations sans revenir au menu.
+    while True:
+        ui.write()
+        n_rounds = ui.ask_int("Combien de manches simuler par stratégie ?",
+                               default=5000, minimum=100, maximum=50000)
+        bet_size = ui.ask_float("Mise de base (unité ; les compteurs misent 1× à 8×)",
+                                default=10.0, minimum=0.5, maximum=1000.0)
+
+        ui.write()
+        ui.info("Simulation en cours… une ligne s'affiche au fur et à mesure que "
+                "chaque stratégie termine (augmentez le nombre de manches pour plus "
+                "de fiabilité, au prix d'un calcul plus long).")
+        ui.write()
+        ui.write(f"{'Stratégie':<25}{'EV par main':>16}{'Win %':>10}{'BJ %':>10}")
+        ui.write("─" * 61)
+        for key, cls in STRATEGIES.items():
+            if cls is ManualStrategy:
+                continue
+            # Le joueur de simu utilise la *même* stratégie pour décider.
+            strategy = cls()
+            sim_player = HumanPlayer(name="SimBot", bankroll=1e9, strategy=strategy)
+            sim_player.ui = _SilentUI(strategy)
+            game = Game(rules=rules, player=sim_player, strategy=strategy, ui=None)
+            for _ in range(n_rounds):
+                try:
+                    game.play_round(_sim_bet(strategy, game, rules, bet_size))
+                except ValueError:
+                    break
+            ev = game.stats.expected_value * 100
+            wr = game.stats.win_rate * 100
+            bj = (game.stats.blackjacks / game.stats.hands_played * 100
+                  if game.stats.hands_played else 0.0)
+            ui.write(f"{cls.name:<25}{ev:>+15.3f}%{wr:>9.2f}%{bj:>9.2f}%")
+        ui.write()
+        ui.info("Lecture : la stratégie de base mise à plat et tend vers l'avantage "
+                "de la maison (≈ -0,5 %). Les comptages varient leur mise sur les "
+                "sabots favorables et peuvent dégager une EV positive — c'est "
+                "l'essence du comptage.")
+        ui.info("Attention : avec une mise variable, la variance est forte. Sur peu "
+                "de manches, le hasard domine (un compteur peut sembler moins bon). "
+                "Augmentez fortement le nombre de manches (p. ex. 50000) pour voir "
+                "l'avantage se confirmer.")
+
+        ui.write()
+        if not ui.ask_yes_no("Lancer une autre simulation ?", default=False):
+            break
 
 
-def _about(ui: UI) -> None:
-    ui.header("À propos")
+def _about(ui: UI) -> bool:
+    """Affiche l'aide / à-propos. Renvoie True pour revenir au menu, False pour
+    quitter le jeu."""
+    ui.header("À propos / Aide")
     ui.write("""
-  Projet pédagogique — NFP01 (CNAM).
-  Jeu de Blackjack en Python orienté objet.
+  Projet pédagogique — NFP01 (CNAM) : Blackjack en Python orienté objet.
 
-  Fonctionnalités :
-    • Plusieurs stratégies d'aide à la décision sélectionnables :
-        - Stratégie de Base (4-8 jeux, S17, DAS, surrender)
-        - Comptages Hi-Lo, KO, Hi-Opt I, Hi-Opt II, Omega II, Zen, Red 7
-    • Règles paramétrables via config/default.json
-    • Mode simulation comparant les stratégies
-    • Journaux dans logs/blackjack.log
+  Comment jouer :
+    • Au menu, choisissez un mode (1 à 6).
+    • Pendant une main, tapez la lettre de l'action — h (tirer), s (rester),
+      d (doubler), p (séparer) — ou le mot entier (« tirer », « rester »…).
+
+  Les modes :
+    • 1  Nouvelle partie — reprend votre solde sauvegardé si vous le souhaitez.
+    • 2  Didacticiel — tout est commenté pas à pas, idéal pour débuter.
+    • 3  Règles du jeu — récapitulatif complet et illustré.
+    • 4  Comparer les stratégies — simulation chiffrée sur des milliers de mains.
+    • 6  Musique d'ambiance — morceau de lounge généré ou webradio (SomaFM…).
+
+  Aide à la décision : stratégie de base + 7 comptages (Hi-Lo, KO, Hi-Opt I/II,
+  Omega II, Zen, Red 7), avec mise conseillée selon le « true count ».
+
+  Confort & progression :
+    • Animations et narration activables (le croupier « parle » en didacticiel).
+    • Solde, statistiques et records sauvegardés entre les sessions ; re-cave
+      possible en cas de faillite ; séries de victoires affichées.
+    • Assurance proposée quand le croupier montre un As.
+
+  Règles de la table (modifiables dans config/default.json) :
+    6 jeux, croupier reste sur 17, double sur durs 9-11, blackjack payé 3:2,
+    carte cachée + vérification (peek). Journaux dans logs/blackjack.log,
+    profil dans ~/.blackjack_profile.json.
 
   Sources de référence pour les stratégies :
     • E. O. Thorp,    Beat the Dealer
@@ -262,6 +288,8 @@ def _about(ui: UI) -> None:
     • A. Snyder,      Blackbelt in Blackjack
     • B. Carlson,     Blackjack for Blood
 """)
+    ui.write()
+    return ui.ask_yes_no("Revenir à l'écran d'accueil ?", default=True)
 
 
 class _SilentUI:
@@ -371,7 +399,9 @@ def main(argv: Optional[list] = None) -> int:
             elif choice == "4":
                 _compare_strategies(ui)
             elif choice == "5":
-                _about(ui)
+                if not _about(ui):
+                    ui.success("Au revoir !")
+                    return 0
             elif choice == "6":
                 _toggle_music(ui, music)
             elif choice == "0":
