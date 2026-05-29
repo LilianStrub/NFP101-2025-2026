@@ -61,6 +61,14 @@ le cours **NFP01 / CNAM** (Adrien Escourrou) :
 - **9 stratégies** au choix (1 manuelle, 1 de base, 7 comptages).
 - **Mise conseillée** par true count pour les stratégies de comptage.
 - **Mode simulation** : compare les stratégies sur des milliers de mains.
+- **Sauvegarde & reprise** : le solde, les statistiques cumulées « à vie » et
+  les records sont conservés entre les sessions (profil JSON dans
+  `~/.blackjack_profile.json`) — on quitte et on reprend sa partie plus tard.
+- **Records à battre** : meilleur solde atteint, plus longue série de victoires,
+  plus gros gain en une main, blackjacks et manches cumulés.
+- **Re-cave après faillite** : quand le solde est épuisé, on peut remettre une
+  cave pour continuer à jouer au lieu de terminer.
+- **Séries de victoires** affichées en cours de jeu (« 🔥 3 victoires d'affilée ! »).
 - **Statistiques de session** : EV, win rate, blackjacks naturels…
 - **Musique d'ambiance** activable depuis le menu (sans dépendance : lecteur
   système type `afplay`/`aplay`/`ffplay`). À l'activation, on choisit la source :
@@ -247,6 +255,8 @@ Les tests couvrent :
 - le règlement des gains d'une manche (blackjack 3:2, push, abandon, bust,
   égalité…) et la restriction de double aux durs 9-10-11,
 - le flux carte cachée + peek (Blackjack joueur / croupier / double),
+- le profil persistant (sauvegarde/reprise, cumul, records) et les séries de
+  victoires,
 - une simulation de 200 manches bout en bout.
 
 ---

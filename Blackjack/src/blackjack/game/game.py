@@ -34,11 +34,17 @@ class Statistics:
     busts: int = 0
     total_bet: float = 0.0
     total_won: float = 0.0  # net positif/négatif
+    # Engagement : séries de victoires et record du plus gros gain en une main.
+    current_win_streak: int = 0
+    longest_win_streak: int = 0
+    biggest_win: float = 0.0
 
     def record(self, outcome: Outcome, net: float, bet: float) -> None:
         self.hands_played += 1
         self.total_bet += bet
         self.total_won += net
+        if net > self.biggest_win:
+            self.biggest_win = net
         if outcome is Outcome.BLACKJACK:
             self.blackjacks += 1
             self.wins += 1
@@ -54,6 +60,19 @@ class Statistics:
             self.losses += 1
         elif outcome is Outcome.LOSS:
             self.losses += 1
+
+    def record_round(self, net: float) -> None:
+        """Met à jour la série de victoires d'après le gain net d'une manche.
+
+        Gain positif → la série s'allonge ; perte → elle repart à zéro ;
+        égalité (net nul) → série inchangée.
+        """
+        if net > 0:
+            self.current_win_streak += 1
+            self.longest_win_streak = max(self.longest_win_streak,
+                                          self.current_win_streak)
+        elif net < 0:
+            self.current_win_streak = 0
 
     def record_side_bet(self, wager: float, net: float) -> None:
         """Comptabilise une mise annexe (assurance) dans le total misé et le bilan.
@@ -123,13 +142,18 @@ class Game:
                     self.strategy, ui=self.ui)
         results = rnd.play(bet)
         self.stats.rounds_played += 1
+        round_net = 0.0
         # Mise annexe : l'assurance entre dans le bilan et l'EV (cohérence solde).
         if rnd._insurance_bet > 0:
             self.stats.record_side_bet(rnd._insurance_bet, rnd._insurance_net)
+            round_net += rnd._insurance_net
         for hand, outcome, net in results:
             self.stats.record(outcome, net, hand.bet)
+            round_net += net
             logger.info("Manche %d : %s — main %s, net=%.2f",
                         self.stats.rounds_played, outcome.value, hand, net)
+        # Série de victoires (sur le résultat global de la manche).
+        self.stats.record_round(round_net)
         return results
 
     # ------------------------------------------------------------------ #

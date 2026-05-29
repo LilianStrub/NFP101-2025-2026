@@ -10,7 +10,7 @@ import logging
 import sys
 from typing import Optional
 
-from .game import Game
+from .game import Game, Profile, load_profile, save_profile
 from .players import HumanPlayer
 from .strategies import STRATEGIES, BasicStrategy, ManualStrategy, Strategy
 from .ui import UI
@@ -21,12 +21,25 @@ logger = logging.getLogger(__name__)
 
 
 def _play_session(ui: UI) -> None:
-    """Partie normale : le joueur choisit l'aide d'une stratégie et les animations."""
+    """Partie normale : reprise du profil sauvegardé, aide et animations au choix."""
     rules = load_rules()
 
     ui.header("Configuration du joueur")
-    bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
-                            minimum=rules.min_bet)
+
+    # Sauvegarde & reprise : on repart du solde sauvegardé si le joueur le souhaite.
+    base = load_profile()
+    if base is not None:
+        if ui.ask_yes_no(f"Reprendre votre partie (solde {base.bankroll:.2f}) ?",
+                         default=True):
+            bankroll = base.bankroll
+        else:
+            bankroll = ui.ask_float("Nouveau solde de départ",
+                                    default=rules.starting_bankroll,
+                                    minimum=rules.min_bet)
+    else:
+        base = Profile()
+        bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
+                                minimum=rules.min_bet)
 
     use_advice = ui.ask_yes_no(
         "Voulez-vous afficher l'aide d'une stratégie pendant le jeu ?",
@@ -46,7 +59,20 @@ def _play_session(ui: UI) -> None:
     player.show_advice = use_advice and not isinstance(strategy, ManualStrategy)
 
     game = Game(rules=rules, player=player, strategy=strategy, ui=ui)
-    _game_loop(ui, game, player, strategy, rules, bankroll)
+
+    # Re-cave proposée quand le solde est épuisé (montant = cave de départ).
+    rebuy = max(rules.min_bet, round(rules.starting_bankroll, 2))
+
+    def persist(peak: float, rebuys: int) -> None:
+        save_profile(base.folded_with(game.stats, player.bankroll, peak, rebuys))
+
+    _game_loop(ui, game, player, strategy, rules, bankroll,
+               rebuy_amount=rebuy, persist=persist)
+
+    # Bilan persistant : records et solde sauvegardé.
+    saved = load_profile()
+    if saved is not None:
+        ui.show_records(saved)
 
 
 def _tutorial_session(ui: UI) -> None:
@@ -70,19 +96,40 @@ def _tutorial_session(ui: UI) -> None:
     player.show_advice = True
 
     game = Game(rules=rules, player=player, strategy=strategy, ui=ui)
-    _game_loop(ui, game, player, strategy, rules, bankroll)
+    rebuy = max(rules.min_bet, round(rules.starting_bankroll, 2))
+    _game_loop(ui, game, player, strategy, rules, bankroll, rebuy_amount=rebuy)
 
 
 def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
-               strategy: Strategy, rules, bankroll: float) -> None:
-    """Boucle de manches partagée entre la partie normale et le didacticiel."""
+               strategy: Strategy, rules, bankroll: float, *,
+               rebuy_amount: Optional[float] = None,
+               persist=None) -> None:  # noqa: ANN001
+    """Boucle de manches partagée entre la partie normale et le didacticiel.
+
+    ``rebuy_amount`` : si défini, propose de remettre une cave quand le solde
+    est épuisé (au lieu de terminer). ``persist`` : callback ``(peak, rebuys)``
+    appelé après chaque manche pour sauvegarder la progression.
+    """
     # Mise par défaut suggérée pour un débutant : 1% du solde initial,
     # bornée par les limites min/max de mise du casino.
     beginner_bet = max(rules.min_bet, round(bankroll * 0.01, 2))
     beginner_bet = min(beginner_bet, rules.max_bet)
 
+    peak = player.bankroll
+    rebuys = 0
+
     while True:
         if player.bankroll < rules.min_bet:
+            if rebuy_amount and ui.ask_yes_no(
+                    f"Solde épuisé. Remettre une cave de {rebuy_amount:.2f} "
+                    "pour continuer ?", default=True):
+                player.credit(rebuy_amount)
+                rebuys += 1
+                peak = max(peak, player.bankroll)
+                ui.success(f"Nouvelle cave de {rebuy_amount:.2f}. Bonne chance !")
+                if persist is not None:
+                    persist(peak, rebuys)
+                continue
             ui.error("Plus assez d'argent pour miser. Fin de la partie.")
             break
 
@@ -108,6 +155,10 @@ def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
             continue
 
         ui.show_round_results(results)
+        peak = max(peak, player.bankroll)
+        ui.show_streak(game.stats.current_win_streak)
+        if persist is not None:
+            persist(peak, rebuys)
 
         if not ui.ask_yes_no("Jouer une autre manche ?", default=True):
             break

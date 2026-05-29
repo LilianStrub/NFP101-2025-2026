@@ -681,7 +681,8 @@ class UI:
         tbl.add_row("Défaites",            f"{stats.losses}")
         tbl.add_row("Blackjacks naturels", f"{stats.blackjacks}")
         tbl.add_row("Mains brûlées",       f"{stats.busts}")
-        tbl.add_row("Abandons",            f"{stats.surrenders}")
+        if stats.surrenders:  # masquée quand l'abandon est désactivé/inutilisé
+            tbl.add_row("Abandons",        f"{stats.surrenders}")
         tbl.add_row("Total misé",          f"{stats.total_bet:.2f}")
         net_color = "good" if stats.total_won >= 0 else "danger"
         tbl.add_row("Bilan net",
@@ -689,6 +690,32 @@ class UI:
         tbl.add_row("Espérance par mise",
                     Text(f"{stats.expected_value*100:+.2f} %", style=net_color))
         self.console.print(Panel(tbl, border_style="felt", padding=(1, 2)))
+
+    def show_streak(self, streak: int) -> None:
+        """Affiche la série de victoires en cours (à partir de 2)."""
+        if streak < 2:
+            return
+        self.console.print(
+            Text(f"🔥 {streak} victoires d'affilée !", style="gold")
+        )
+
+    def show_records(self, profile) -> None:  # noqa: ANN001
+        """Affiche les records et le cumul « à vie » du profil sauvegardé."""
+        self.header("Vos records")
+        tbl = Table.grid(padding=(0, 2))
+        tbl.add_column(style="info", no_wrap=True)
+        tbl.add_column(style="gold", justify="right")
+        tbl.add_row("Meilleur solde atteint",   f"{profile.best_bankroll:.2f}")
+        tbl.add_row("Plus longue série",         f"{profile.longest_win_streak}")
+        tbl.add_row("Plus gros gain (1 main)",   f"{profile.biggest_win:+.2f}")
+        tbl.add_row("Blackjacks (total)",        f"{profile.blackjacks}")
+        tbl.add_row("Manches jouées (total)",    f"{profile.rounds_played}")
+        if profile.rebuys:
+            tbl.add_row("Re-caves",              f"{profile.rebuys}")
+        self.console.print(Panel(tbl, title=Text(" 🏆 Records ", style="gold"),
+                                 border_style="gold", padding=(1, 2)))
+        self.console.print(Text(f"💰 Solde sauvegardé : {profile.bankroll:.2f}",
+                                style="white"))
 
     # ------------------------------------------------------------------ #
     # Prompt d'assurance — appelé par Round
