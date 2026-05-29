@@ -33,12 +33,12 @@ def _play_session(ui: UI) -> None:
                          default=True):
             bankroll = base.bankroll
         else:
-            bankroll = ui.ask_float("Nouveau solde de départ",
+            bankroll = ui.ask_float("Nouveau solde de départ (votre argent de jeu, en €)",
                                     default=rules.starting_bankroll,
                                     minimum=rules.min_bet)
     else:
         base = Profile()
-        bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
+        bankroll = ui.ask_float("Solde de départ (votre argent de jeu, en €)", default=rules.starting_bankroll,
                                 minimum=rules.min_bet)
 
     use_advice = ui.ask_yes_no(
@@ -85,7 +85,7 @@ def _tutorial_session(ui: UI) -> None:
             "de la stratégie de base s'affiche à chaque tour, et chaque choix "
             "possible est expliqué. Idéal pour découvrir le Blackjack.")
     ui.write()
-    bankroll = ui.ask_float("Solde de départ", default=rules.starting_bankroll,
+    bankroll = ui.ask_float("Solde de départ (votre argent de jeu, en €)", default=rules.starting_bankroll,
                             minimum=rules.min_bet)
 
     strategy: Strategy = BasicStrategy()
@@ -110,13 +110,9 @@ def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
     est épuisé (au lieu de terminer). ``persist`` : callback ``(peak, rebuys)``
     appelé après chaque manche pour sauvegarder la progression.
     """
-    # Mise par défaut suggérée pour un débutant : 1% du solde initial,
-    # bornée par les limites min/max de mise du casino.
-    beginner_bet = max(rules.min_bet, round(bankroll * 0.01, 2))
-    beginner_bet = min(beginner_bet, rules.max_bet)
-
     peak = player.bankroll
     rebuys = 0
+    last_bet: Optional[float] = None  # dernière mise du joueur (manches ≥ 2)
 
     while True:
         if player.bankroll < rules.min_bet:
@@ -140,13 +136,28 @@ def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
         if strategy.counts_cards:
             ui.show_count_status(strategy, game.shoe.decks_remaining)
 
-        suggested = game.suggested_bet() if strategy.counts_cards else beginner_bet
-        bet = ui.ask_float(
-            f"Votre mise (min {rules.min_bet}, max {min(rules.max_bet, player.bankroll)})",
+        # Mise proposée par défaut :
+        #  • comptage → palier 1× à 8× selon le true count (mise variable,
+        #    recalculée à chaque manche car c'est tout l'intérêt du comptage) ;
+        #  • sinon → 1 % du solde à la 1re manche, puis on conserve la dernière
+        #    mise du joueur (elle ne « bouge » plus à chaque gain/perte).
+        if strategy.counts_cards:
+            unit = max(rules.min_bet, round(player.bankroll * 0.01, 2))
+            unit = min(unit, rules.max_bet)
+            suggested = game.suggested_bet(unit)
+            ui.info("Mise conseillée selon le comptage (plus le sabot est "
+                    "favorable, plus elle augmente).")
+        elif last_bet is None:
+            suggested = min(max(rules.min_bet, round(player.bankroll * 0.01, 2)),
+                            rules.max_bet)
+        else:
+            suggested = last_bet
+        bet = ui.ask_bet(
             default=min(suggested, player.bankroll),
             minimum=rules.min_bet,
             maximum=min(rules.max_bet, player.bankroll),
         )
+        last_bet = bet  # mémorisée pour servir de défaut à la manche suivante
 
         try:
             results = game.play_round(bet)

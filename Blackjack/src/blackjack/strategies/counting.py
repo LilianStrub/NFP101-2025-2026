@@ -27,6 +27,47 @@ from .base_strategy import Strategy
 from .basic_strategy import BasicStrategy
 
 
+# --------------------------------------------------------------------------- #
+# Palier de mise commun à tous les comptages — SOURCE UNIQUE.
+# Du plus favorable au moins : (true count minimum, multiplicateur de la mise).
+# En dessous du dernier seuil, on garde la mise de base (1×).
+# --------------------------------------------------------------------------- #
+BET_RAMP = (
+    (5, 8),
+    (4, 6),
+    (3, 4),
+    (2, 2),
+)
+
+
+def bet_units_for(true_count: float) -> int:
+    """Multiplicateur de mise conseillé pour un true count donné."""
+    for threshold, units in BET_RAMP:
+        if true_count >= threshold:
+            return units
+    return 1
+
+
+# Présentation pédagogique du palier (affichée au choix de stratégie).
+# (condition, multiplicateur, raison). Construite à partir de BET_RAMP pour
+# rester cohérente : on ajoute la ligne « mise de base » sous le plus bas seuil.
+def _bet_ramp_guide():
+    reasons = {2: "léger avantage pour vous",
+               3: "avantage net",
+               4: "fort avantage",
+               5: "avantage maximal"}
+    rows = [("true count ≤ +1", "1× (mise de base)",
+             "sabot neutre ou défavorable")]
+    for threshold, units in sorted(BET_RAMP):  # du plus bas au plus haut
+        label = (f"true count ≥ +{threshold}" if threshold == BET_RAMP[0][0]
+                 else f"true count +{threshold}")
+        rows.append((label, f"{units}×", reasons.get(threshold, "")))
+    return tuple(rows)
+
+
+BET_RAMP_GUIDE = _bet_ramp_guide()
+
+
 class _CountingStrategy(Strategy):
     """Classe intermédiaire factorisant le comportement commun.
 
@@ -60,28 +101,9 @@ class _CountingStrategy(Strategy):
 
     def betting_units(self, decks_remaining: float, min_bet: float,
                        max_bet: float) -> float:
-        """Modulation simple : palier de mises selon le true count.
-
-        On suit un schéma de mise très standard :
-            TC <= 1     : mise minimale
-            TC = 2      : 2 unités
-            TC = 3      : 4 unités
-            TC = 4      : 6 unités
-            TC >= 5     : 8 unités
-        """
-        tc = self.true_count(decks_remaining)
-        if tc < 2:
-            units = 1
-        elif tc < 3:
-            units = 2
-        elif tc < 4:
-            units = 4
-        elif tc < 5:
-            units = 6
-        else:
-            units = 8
-        bet = min_bet * units
-        return min(bet, max_bet)
+        """Palier de mises standard selon le true count (cf. ``BET_RAMP``)."""
+        units = bet_units_for(self.true_count(decks_remaining))
+        return min(min_bet * units, max_bet)
 
 
 # --------------------------------------------------------------------------- #

@@ -157,10 +157,17 @@ class Game:
         return results
 
     # ------------------------------------------------------------------ #
-    def suggested_bet(self) -> float:
-        """Mise conseillée par la stratégie courante."""
+    def suggested_bet(self, base_unit: float = None) -> float:  # noqa: ANN001
+        """Mise conseillée par la stratégie courante.
+
+        ``base_unit`` fixe la mise « 1 unité » servant de référence au palier
+        des comptages (1× à 8× selon le true count). Par défaut, la mise
+        minimale de la table. Pour une mise proportionnelle au solde, passer
+        par exemple 1 % de la bankroll courante.
+        """
+        unit = self.rules.min_bet if base_unit is None else base_unit
         return self.strategy.betting_units(
             self.shoe.decks_remaining,
-            self.rules.min_bet,
+            unit,
             self.rules.max_bet,
         )

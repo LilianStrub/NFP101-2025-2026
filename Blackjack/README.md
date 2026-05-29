@@ -151,9 +151,9 @@ Le menu principal s'affiche en grosses lettres ASCII dorées et propose :
 1. Saisissez votre solde de départ.
 2. Choisissez d'afficher ou non l'aide d'une **stratégie** (et laquelle).
 3. Activez ou non les **animations** (distribution carte par carte, suspense).
-4. Misez puis jouez votre main avec les lettres `h` / `s` / `d` / `p` / `r`
-   ou en tapant le mot entier : `tirer`, `rester`, `doubler`, `séparer`,
-   `abandonner`.
+4. Misez puis jouez votre main avec les initiales françaises `t` / `r` / `d` /
+   `s` / `a` (Tirer, Rester, Doubler, Séparer, Abandonner) ou en tapant le mot
+   entier : `tirer`, `rester`, `doubler`, `séparer`, `abandonner`.
 
 ### Didacticiel
 

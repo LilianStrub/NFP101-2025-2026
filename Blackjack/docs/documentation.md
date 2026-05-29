@@ -22,17 +22,29 @@ stratégie de base et systèmes de comptage de cartes.
 
 ### Centrale
 Jeu de Blackjack en CLI, actions standard (Hit, Stand, Double, Split,
-Surrender), règles paramétrables.
+Surrender) plus l'assurance, règles paramétrables.
 
 ### Plus-value pédagogique
-Aide à la décision activable au lancement. Le joueur sélectionne, dans
-un menu, l'une des **huit stratégies** disponibles. Pendant chaque tour,
-le conseil de la stratégie est affiché — sans forcer le joueur à le
-suivre, le but étant l'apprentissage.
+- **Aide à la décision** activable au lancement (désactivée par défaut) :
+  le joueur sélectionne l'une des **neuf stratégies** disponibles (1 manuelle,
+  1 de base, 7 comptages) et le conseil s'affiche à chaque tour, sans l'obliger
+  à le suivre.
+- **Mode Didacticiel** (commande 2 du menu) : pensé pour les débutants, tout
+  est commenté pas à pas par le croupier (narration), le conseil de la
+  stratégie de base est affiché et chaque action possible est expliquée, avec
+  animations.
 
 ### Bonus
-- Mode **simulation comparative** (commande 2 du menu) qui calcule l'EV
-  empirique de chaque stratégie sur N manches.
+- Mode **simulation comparative** (commande 4 du menu) : un robot joue N
+  manches par stratégie et l'EV empirique est comparée ; les comptages misent
+  davantage quand le sabot est favorable (mise variable selon le *true count*).
+- **Sauvegarde & reprise** : solde, statistiques cumulées et records persistés
+  dans `~/.blackjack_profile.json` ; **re-cave** en cas de faillite ;
+  **séries de victoires** et **records** affichés.
+- **Animations** (distribution carte par carte, suspense) et **narration**
+  activables.
+- **Musique d'ambiance** (commande 6) : morceau de lounge généré hors-ligne ou
+  webradio (flux SomaFM), via un lecteur audio système.
 - **Journalisation** dans `logs/blackjack.log`.
 - **Configuration** des règles dans `config/default.json`.
 
@@ -41,12 +53,14 @@ suivre, le but étant l'apprentissage.
 ## 3. Choix techniques
 
 ### Langage et environnement
-Python 3.10+ (utilise les *match-case* du cours quand pertinent, les
-annotations de type, et `from __future__ import annotations`).
+Python 3.10+ (annotations de type, `from __future__ import annotations`,
+dataclasses, énumérations).
 
-**Aucune dépendance externe** pour faciliter la prise en main et la
-correction. Le rendu visuel est obtenu via les codes ANSI standard,
-compatibles avec tous les terminaux modernes.
+**Dépendances minimales** : seules `rich` (panneaux, tables, couleurs RGB) et
+`pyfiglet` (gros titres ASCII) sont requises, toutes deux pour l'interface CLI ;
+le moteur de jeu reste 100 % bibliothèque standard. La musique d'ambiance
+s'appuie sur un lecteur audio déjà présent sur le système (`afplay`, `ffplay`,
+`aplay`…), sans paquet supplémentaire.
 
 ### Architecture en couches
 
@@ -54,10 +68,11 @@ compatibles avec tous les terminaux modernes.
 ┌────────────────────────────────────────────┐
 │ ui/  (CLI, prompts, affichage)             │
 ├────────────────────────────────────────────┤
-│ game/ (Rules, Round, Game, Statistics)     │
+│ game/ (Rules, Round, Game, Statistics,     │
+│        Profile)                            │
 ├────────────────────────────────────────────┤
 │ players/ (BasePlayer → Dealer / Human)     │
-│ strategies/ (Strategy → 8 stratégies)      │
+│ strategies/ (Strategy → 9 stratégies)      │
 ├────────────────────────────────────────────┤
 │ core/ (Card, Hand, Shoe, énumérations)     │
 └────────────────────────────────────────────┘
@@ -69,7 +84,7 @@ permettrait par la suite de remplacer la CLI par une GUI sans toucher au
 moteur.
 
 ### Patrons de conception utilisés
-- **Strategy pattern** : classe `Strategy` abstraite et 8 implémentations
+- **Strategy pattern** : classe `Strategy` abstraite et 9 implémentations
   interchangeables. C'est le polymorphisme de l'enseignement traduit en
   code.
 - **Template method** : `BasePlayer.decide()` reste abstrait, chaque
@@ -141,12 +156,18 @@ systématiquement biaisés.
 
 ## 5. Tests
 
-8 fichiers, ~50 cas de test au total. Couverture :
+9 fichiers, 87 cas de test au total. Couverture :
 - Cartes : création, immutabilité, égalité, hash.
-- Sabot : reproductibilité, taille, signal de remélange.
+- Sabot : reproductibilité, taille, signal de remélange, brûlage de carte.
 - Mains : soft/hard, As multiples, paires, bust, double.
 - Stratégies : décisions canoniques, valeurs de tous les comptages,
   équilibre (somme = 0) des comptages balanced.
+- Manche : règlement des gains (blackjack 3:2, push, abandon, bust, égalité),
+  restriction de double aux durs 9-11, flux carte cachée + peek, assurance,
+  garde anti-boucle sur le split.
+- Profil : sauvegarde/reprise JSON, cumul et records, séries de victoires.
+- Simulation : mise variable selon le true count.
+- Audio : génération du morceau, playlist/webradio, mode dégradé.
 - End-to-end : 200 manches simulées sans exception.
 
 ```bash
@@ -204,9 +225,11 @@ Voir le `README.md` à la racine.
 
 ## 9. Limites connues
 
-- Pas de gestion de **l'assurance** (impact mineur, négligeable hors
-  comptage).
-- Pas d'**index plays** (déviations selon le true count).
+- Pas d'**index plays** (déviations de décision selon le true count) : les
+  comptages décident comme la stratégie de base et ne se distinguent que par
+  la mise variable.
+- Pas d'**even money** sur blackjack joueur face à un As (l'assurance, elle,
+  est gérée).
 - Pas de mode **multi-joueurs**.
 - Pas d'interface graphique (CLI uniquement).
 

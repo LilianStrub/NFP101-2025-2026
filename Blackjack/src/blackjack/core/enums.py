@@ -95,13 +95,13 @@ class Action(IntEnum):
 
     @property
     def short(self) -> str:
-        """Code court utilisé dans les tableaux de stratégie."""
+        """Touche à taper (initiale française de l'action)."""
         return {
-            Action.HIT: "H",
-            Action.STAND: "S",
-            Action.DOUBLE: "D",
-            Action.SPLIT: "P",          # P comme « Pair split »
-            Action.SURRENDER: "R",      # R comme « Rendition »
+            Action.HIT: "T",        # Tirer
+            Action.STAND: "R",      # Rester
+            Action.DOUBLE: "D",     # Doubler
+            Action.SPLIT: "S",      # Séparer
+            Action.SURRENDER: "A",  # Abandonner
         }[self]
 
 

@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Install (no external runtime deps, only stdlib + optional pytest for dev)
+# Install (runtime deps: rich + pyfiglet for the CLI; engine itself is stdlib)
 pip install -e .
 pip install -e ".[dev]"   # adds pytest
 
@@ -13,7 +13,7 @@ pip install -e ".[dev]"   # adds pytest
 python -m blackjack
 blackjack                  # after pip install -e .
 
-# Tests (stdlib unittest — no external deps required)
+# Tests (stdlib unittest runner; requires the package installed, i.e. rich + pyfiglet)
 python -m unittest discover -s tests -v
 
 # Run a single test file
@@ -33,8 +33,8 @@ The project is split into five sub-packages under `src/blackjack/`:
 | `core/` | Immutable primitives: `Card`, `Hand`, `Shoe` (multi-deck with cut card), and enums (`Rank`, `Suit`, `Action`, `Outcome`) |
 | `players/` | `BasePlayer` → `Dealer` and `HumanPlayer`. Players own a list of `Hand` objects and call `Strategy.recommend()` internally via `decide()` |
 | `strategies/` | `Strategy` (ABC) → `BasicStrategy`, `ManualStrategy`, seven `_CountingStrategy` subclasses. The `STRATEGIES` dict in `__init__.py` is the central registry — add an entry there to expose a new strategy in the UI |
-| `game/` | `Rules` (dataclass), `Round` (one-hand orchestration), `Game` (session loop + `Statistics`). `Round` handles the hole-card counting correction manually on line 67 |
-| `ui/` | CLI rendering (`cli.py`) — pure ANSI, no external library |
+| `game/` | `Rules` (dataclass), `Round` (one-hand orchestration), `Game` (session loop + `Statistics`), `Profile` (persistent save/resume + records). `Round._play_peek` handles the hole-card counting correction manually (un-observe then re-observe the hole card) |
+| `ui/` | CLI rendering (`cli.py`) using `rich` + `pyfiglet`; optional ambient music (`audio.py`) via a system audio player |
 
 ### Key design decisions
 

@@ -26,6 +26,7 @@ from rich.theme import Theme
 from ..core import Action, Card, Hand, Outcome
 from ..players import Dealer, HumanPlayer
 from ..strategies import STRATEGIES, Strategy
+from ..strategies.counting import BET_RAMP_GUIDE
 
 
 # --------------------------------------------------------------------------- #
@@ -47,7 +48,7 @@ THEME = Theme({
 
 
 # --------------------------------------------------------------------------- #
-# Aide contextuelle sur les actions (mode apprentissage)
+# Aide contextuelle sur les actions (affichée en mode didacticiel)
 # --------------------------------------------------------------------------- #
 _ACTION_HELP = {
     Action.HIT: "prendre une carte de plus (risque de dépasser 21).",
@@ -55,6 +56,37 @@ _ACTION_HELP = {
     Action.DOUBLE: "doubler votre mise, tirer UNE seule carte, puis rester.",
     Action.SPLIT: "séparer votre paire en deux mains (mise doublée).",
     Action.SURRENDER: "abandonner la main et récupérer la moitié de la mise.",
+}
+
+
+# Valeurs des jetons de casino (en €), du plus petit au plus grand.
+CHIP_VALUES = (1, 5, 25, 100, 500)
+
+
+# --------------------------------------------------------------------------- #
+# Guide « grand public » des stratégies (menu de choix de l'aide)
+# Pour chaque clé du registre STRATEGIES : (niveau, explication en clair).
+# --------------------------------------------------------------------------- #
+_STRATEGY_GUIDE = {
+    "manuelle":  ("—",            "Aucun conseil : vous décidez tout seul."),
+    "basique":   ("Débutant ⭐",  "Indique toujours le meilleur coup, calculé "
+                                   "mathématiquement. Rien à mémoriser : idéale "
+                                   "pour apprendre."),
+    "hi-lo":     ("Intermédiaire", "Comptage de cartes le plus connu : suit les "
+                                    "cartes hautes/basses déjà sorties pour repérer "
+                                    "les moments favorables."),
+    "ko":        ("Intermédiaire", "Comptage simplifié : pas de calcul de "
+                                    "conversion à faire dans sa tête."),
+    "red-7":     ("Intermédiaire", "Comptage simplifié où même la couleur du 7 "
+                                    "entre en compte."),
+    "hi-opt-i":  ("Avancé",       "Comptage plus fin que le Hi-Lo (les As se "
+                                   "suivent à part)."),
+    "hi-opt-ii": ("Expert",       "Comptage très précis mais exigeant (plusieurs "
+                                   "valeurs à retenir)."),
+    "omega-ii":  ("Expert",       "Parmi les comptages les plus puissants ; "
+                                   "demande beaucoup de concentration."),
+    "zen":       ("Expert",       "Comptage avancé, bon compromis entre puissance "
+                                   "et difficulté."),
 }
 
 
@@ -198,7 +230,8 @@ class UI:
         self.console = Console(theme=THEME, file=stream, highlight=False)
         self.round_number: int = 0
         self.tour_number: int = 0
-        # Mode apprentissage (didacticiel) : conseil + explications + narration.
+        # Didacticiel (menu « 2 ») : conseil + explications + narration. L'attribut
+        # interne reste nommé ``learning_mode`` mais correspond au Didacticiel.
         self.learning_mode: bool = False
         # Animations activées par défaut ; pilotent les délais de suspense.
         self.animations_enabled: bool = True
@@ -206,10 +239,14 @@ class UI:
         self.deal_delay: float = self.DEAL_DELAY
         # Pause de suspense entre les tirages du croupier en cours de jeu.
         self.draw_delay: float = self.DRAW_DELAY
-        # Pause de lecture après une ligne de narration (mode apprentissage).
+        # Pause de lecture après une ligne de narration (mode didacticiel).
         self.narration_delay: float = 1.0
         # Live display pour l'animation de distribution (mis à jour en place).
         self._deal_live: Optional[Live] = None
+        # Légendes d'aide affichées une seule fois par session.
+        self._yesno_help_shown: bool = False
+        self._bet_help_shown: bool = False
+        self._num_help_shown: bool = False
 
     # ------------------------------------------------------------------ #
     # Sorties basiques (compatibles avec l'ancienne API)
@@ -248,7 +285,7 @@ class UI:
             time.sleep(self.draw_delay)
 
     def narrate(self, text: str, pause: bool = True) -> None:
-        """Commente une action de la table — uniquement en mode apprentissage.
+        """Commente une action de la table — uniquement en mode didacticiel.
 
         ``pause`` ajoute un court temps de lecture. On le met à ``False`` quand
         un délai existant suit immédiatement (ex. révélation d'une carte).
@@ -286,7 +323,7 @@ class UI:
 
         self.console.print(Panel(options, title=Text(" Menu principal ", style="gold"),
                                  border_style="felt", padding=(1, 2)))
-        return input("Votre choix : ").strip()
+        return input("Tapez le numéro de votre choix (0 à 6) puis Entrée : ").strip()
 
     def show_rules(self) -> None:
         """Affiche les règles du Blackjack pour les débutants."""
@@ -331,10 +368,10 @@ class UI:
         act.add_column(style="warn", no_wrap=True)
         act.add_column(style="dim", no_wrap=True)
         act.add_column(style="white")
-        act.add_row("Tirer",      "(h, tirer)",      "Prendre une carte supplémentaire.")
-        act.add_row("Rester",     "(s, rester)",     "Garder votre main et passer au croupier.")
+        act.add_row("Tirer",      "(t, tirer)",      "Prendre une carte supplémentaire.")
+        act.add_row("Rester",     "(r, rester)",     "Garder votre main et passer au croupier.")
         act.add_row("Doubler",    "(d, doubler)",    "Doubler votre mise, tirer UNE seule carte, puis rester.")
-        act.add_row("Séparer",    "(p, separer)",    "Séparer une paire en deux mains (mise doublée).")
+        act.add_row("Séparer",    "(s, séparer)",    "Séparer une paire en deux mains (mise doublée).")
         self.console.print(Panel(act, title=Text(" ⚡ Actions possibles ", style="gold"),
                                  border_style="felt", padding=(0, 2)))
 
@@ -362,69 +399,214 @@ class UI:
                                  border_style="felt", padding=(0, 2)))
 
         self.console.print()
-        self.info("Astuce débutant : activez le « Mode apprentissage » au lancement "
-                  "d'une partie pour obtenir des conseils à chaque tour.")
+        self.info("Astuce débutant : choisissez « 2 Didacticiel — apprendre en jouant » "
+                  "au menu principal pour des conseils et des explications à chaque tour.")
         self.console.print()
         input("Appuyez sur Entrée pour revenir au menu...")
 
     def choose_strategy(self) -> Tuple[str, Strategy]:
         """Affiche la liste des stratégies et fait choisir le joueur."""
         self.header("Choix de la stratégie d'aide à la décision")
-        keys = list(STRATEGIES.keys())
+
+        # Explication du concept, avant le tableau.
+        intro = Text()
+        intro.append("Une « stratégie d'aide » est un coach : à chaque tour, "
+                     "elle vous suggère le meilleur coup à jouer.\n\n", style="white")
+        intro.append("Deux familles :\n", style="white")
+        intro.append("• La Stratégie de Base", style="good")
+        intro.append(" conseille toujours le coup mathématiquement optimal. "
+                     "Rien à retenir, parfaite pour débuter.\n", style="white")
+        intro.append("• Les comptages de cartes", style="advice")
+        intro.append(" (Hi-Lo, KO…) suivent en plus les cartes déjà sorties "
+                     "pour affiner conseils et mises — réservés aux joueurs "
+                     "avertis.\n", style="white")
+        intro.append("\n👉 Débutant ? Choisissez la Stratégie de Base "
+                     "(ou appuyez sur Entrée).", style="gold")
+        self.console.print(Panel(intro, title=Text(" 💡 C'est quoi ? ", style="gold"),
+                                 border_style="felt", padding=(1, 2)))
+
+        recommended_key = "basique"
+
+        # Tri par niveau croissant : — / Débutant / Intermédiaire / Avancé /
+        # Expert (tri stable → l'ordre du registre est conservé à niveau égal).
+        def _level_rank(key: str) -> int:
+            niveau = _STRATEGY_GUIDE.get(key, ("",))[0]
+            if niveau == "—":
+                return 0
+            if niveau.startswith("Débutant"):
+                return 1
+            if niveau.startswith("Intermédiaire"):
+                return 2
+            if niveau.startswith("Avancé"):
+                return 3
+            return 4  # Expert (et tout niveau inconnu en dernier)
+
+        keys = sorted(STRATEGIES.keys(), key=_level_rank)
 
         tbl = Table(show_header=True, header_style="gold", border_style="felt",
-                    show_lines=False, padding=(0, 1))
+                    show_lines=True, padding=(0, 1))
         tbl.add_column("#", style="gold", justify="right", no_wrap=True)
         tbl.add_column("Stratégie", style="info", no_wrap=True)
-        tbl.add_column("Type", justify="center", no_wrap=True)
-        tbl.add_column("Description", style="white")
+        tbl.add_column("Niveau", justify="center", no_wrap=True)
+        tbl.add_column("En clair", style="white")
 
         for i, key in enumerate(keys, start=1):
             cls = STRATEGIES[key]
-            tag = Text("comptage", style="advice") if cls.counts_cards else Text("—", style="dim")
-            tbl.add_row(str(i), cls.name, tag, cls.description.replace("\n", " "))
+            niveau, en_clair = _STRATEGY_GUIDE.get(
+                key, ("—", cls.description.replace("\n", " ")))
+            nom = cls.name + ("  (conseillé)" if key == recommended_key else "")
+            nom_style = "good" if key == recommended_key else "info"
+            niv_style = "good" if niveau.startswith("Débutant") else (
+                "dim" if niveau == "—" else "advice")
+            tbl.add_row(str(i), Text(nom, style=nom_style),
+                        Text(niveau, style=niv_style), en_clair)
         self.console.print(tbl)
 
+        # Quand / de combien / pourquoi augmenter sa mise (comptages).
+        self._show_bet_ramp_help()
+
+        rec_index = keys.index(recommended_key) + 1
         while True:
-            choice = input("\nVotre choix (numéro) : ").strip()
-            if choice.isdigit() and 1 <= int(choice) <= len(keys):
+            choice = input(f"\nVotre choix (numéro, ou Entrée = {rec_index}. "
+                           "Stratégie de Base) : ").strip()
+            if not choice:
+                key = recommended_key
+            elif choice.isdigit() and 1 <= int(choice) <= len(keys):
                 key = keys[int(choice) - 1]
-                cls = STRATEGIES[key]
-                strat = cls()
-                self.success(f"Stratégie sélectionnée : {strat.name}")
-                return key, strat
-            self.error("Choix invalide. Recommencez.")
+            else:
+                self.error("Choix invalide. Recommencez.")
+                continue
+            cls = STRATEGIES[key]
+            strat = cls()
+            self.success(f"Stratégie sélectionnée : {strat.name}")
+            return key, strat
+
+    def _show_bet_ramp_help(self) -> None:
+        """Explique, pour les comptages, quand/de combien/pourquoi miser plus."""
+        why = Text()
+        why.append("Réservé aux stratégies de comptage. ", style="advice")
+        why.append("Le « true count » mesure combien de grosses cartes "
+                    "(10 et As) restent dans le sabot, ajusté au nombre de jeux "
+                    "restants.\n", style="white")
+        why.append("Plus il est élevé, plus le sabot vous est favorable "
+                   "(davantage de blackjacks et de croupiers qui sautent) : "
+                   "vous augmentez alors votre mise pour gagner plus quand "
+                   "l'avantage est de votre côté.\n", style="white")
+        why.append("Quand il est bas ou négatif, vous revenez à la mise de base.",
+                   style="dim")
+        self.console.print(Panel(
+            why, title=Text(" 📈 Quand augmenter sa mise ? ", style="gold"),
+            border_style="advice", padding=(1, 2)))
+
+        ramp = Table(show_header=True, header_style="gold", border_style="advice",
+                     padding=(0, 1))
+        ramp.add_column("Si le true count est…", style="info", no_wrap=True)
+        ramp.add_column("Misez", style="good", justify="center", no_wrap=True)
+        ramp.add_column("Pourquoi", style="white")
+        for condition, mult, reason in BET_RAMP_GUIDE:
+            ramp.add_row(condition, mult, reason)
+        self.console.print(ramp)
+        self.console.print(Text(
+            "« Misez 4× » = quatre fois votre mise de base (votre mise de la "
+            "1re manche). Note : KO et Red 7 se basent sur le compte courant, "
+            "sans conversion.", style="dim"))
 
     def ask_yes_no(self, question: str, default: bool = True) -> bool:
+        # Légende affichée une fois : explique les réponses possibles et le défaut.
+        if not self._yesno_help_shown:
+            self.console.print(Text(
+                "Réponses : « o » pour oui, « n » pour non. La lettre en "
+                "MAJUSCULE est choisie si vous appuyez juste sur Entrée.",
+                style="dim"))
+            self._yesno_help_shown = True
         suffix = " [O/n] " if default else " [o/N] "
         ans = input(question + suffix).strip().lower()
         if not ans:
             return default
         return ans in ("o", "oui", "y", "yes")
 
+    def _num_help(self) -> None:
+        """Explique une fois la convention [valeur par défaut] + Entrée."""
+        if not self._num_help_shown:
+            self.console.print(Text(
+                "La valeur entre crochets [ ] est proposée par défaut : appuyez "
+                "sur Entrée pour l'accepter, ou tapez votre propre valeur.",
+                style="dim"))
+            self._num_help_shown = True
+
     def ask_int(self, question: str, default: int, minimum: int = 1,
                 maximum: int = 100) -> int:
+        self._num_help()
         while True:
             ans = input(f"{question} [{default}] : ").strip()
             if not ans:
                 return default
             if ans.isdigit() and minimum <= int(ans) <= maximum:
                 return int(ans)
-            self.error(f"Entrez un entier entre {minimum} et {maximum}.")
+            self.error(f"Entrez un nombre entier entre {minimum} et {maximum}.")
 
     def ask_float(self, question: str, default: float, minimum: float = 0.0,
                   maximum: float = 1e9) -> float:
+        self._num_help()
         while True:
             ans = input(f"{question} [{default}] : ").strip()
             if not ans:
                 return default
             try:
-                v = float(ans)
+                v = float(ans.replace(",", "."))
                 if minimum <= v <= maximum:
                     return v
             except ValueError:
                 pass
-            self.error(f"Entrez un nombre entre {minimum} et {maximum}.")
+            self.error(f"Entrez un nombre entre {minimum:g} et {maximum:g}.")
+
+    def ask_bet(self, default: float, minimum: float, maximum: float) -> float:
+        """Mise façon casino : on tape le montant, Entrée lance la manche.
+
+        La mise est arrondie à un montant « en jetons » (multiple du plus petit
+        jeton) : impossible de miser au centime. Entrée sans rien saisir reprend
+        la mise conseillée. ``tapis`` mise tout le solde.
+        """
+        step = min(CHIP_VALUES)  # plus petit jeton → granularité (pas de centime)
+
+        def snap(x: float) -> float:
+            v = round(x / step) * step
+            return float(min(max(v, minimum), maximum))
+
+        suggested = snap(default)
+        # On ne propose que les jetons jouables (≤ solde / mise max).
+        chips = [c for c in CHIP_VALUES if c <= maximum] or [CHIP_VALUES[0]]
+        chip_line = Text("Jetons : ", style="white")
+        for c in chips:
+            chip_line.append(f"[{c}] ", style="gold")
+        self.console.print(chip_line)
+        # Légende affichée une fois : explique le défaut entre crochets.
+        if not self._bet_help_shown:
+            self.console.print(Text(
+                "Le montant entre crochets [ ] est la mise par défaut : appuyez "
+                "sur Entrée pour la valider, ou tapez un autre montant.",
+                style="dim"))
+            self._bet_help_shown = True
+
+        while True:
+            ans = input(f"Votre mise en € (min {minimum:.0f}, max {maximum:.0f}, "
+                        f"« tapis ») [{suggested:.0f}] : ").strip().lower()
+            if not ans:
+                return suggested
+            if ans in ("tapis", "max", "all-in"):
+                return snap(maximum)
+            try:
+                v = float(ans.replace(",", "."))
+            except ValueError:
+                self.error("Entrez un montant (ex. 25), « tapis », ou Entrée.")
+                continue
+            if v < minimum or v > maximum:
+                self.warn(f"Misez entre {minimum:.0f} et {maximum:.0f} €.")
+                continue
+            snapped = snap(v)
+            if snapped != v:
+                self.info(f"Mise arrondie à {snapped:.0f} € (jetons, pas de centime).")
+            return snapped
 
     # ------------------------------------------------------------------ #
     # Affichage d'une manche
@@ -553,7 +735,7 @@ class UI:
         self._stop_deal_live()
         self.console.print()
         # En didacticiel, la narration annonce déjà la révélation : on évite
-        # le doublon en n'imprimant le libellé que hors mode apprentissage.
+        # le doublon en n'imprimant le libellé que hors mode didacticiel.
         if not self.learning_mode:
             label = "révèle sa carte cachée" if revealed is not None else "tire sa 2e carte"
             self.console.print(Text(f"Croupier {label} :", style="info"))
@@ -736,12 +918,20 @@ class UI:
             _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
         ))
 
+        ins = Text()
+        ins.append("Le croupier montre un As.\n\n", style="warn")
+        ins.append("L'assurance est un pari à part : vous misez la moitié de "
+                   "votre mise ", style="white")
+        ins.append(f"({max_insurance:.2f} €)", style="gold")
+        ins.append(". Si le croupier a un Blackjack, elle rapporte 2:1 (vous ne "
+                   "perdez alors rien) ; sinon, elle est perdue.\n", style="white")
+        ins.append("Conseil : rarement rentable — en cas de doute, refusez.",
+                   style="dim")
         self.console.print(Panel(
-            Text(f"Le croupier montre un As — Prendre l'assurance ({max_insurance:.2f}) ?",
-                 style="warn"),
-            border_style="warn", padding=(0, 2),
+            ins, title=Text(" 🛡  Assurance ? ", style="warn"),
+            border_style="warn", padding=(1, 2),
         ))
-        if self.ask_yes_no("Assurance", default=False):
+        if self.ask_yes_no("Prendre l'assurance ?", default=False):
             return max_insurance
         return 0.0
 
@@ -779,15 +969,15 @@ class UI:
         )
 
         options: List[Tuple[str, Action]] = [
-            ("h", Action.HIT),
-            ("s", Action.STAND),
+            ("t", Action.HIT),      # Tirer
+            ("r", Action.STAND),    # Rester
         ]
         if can_double and player.bankroll >= hand.bet:
-            options.append(("d", Action.DOUBLE))
+            options.append(("d", Action.DOUBLE))   # Doubler
         if hand.can_split and player.bankroll >= hand.bet:
-            options.append(("p", Action.SPLIT))
+            options.append(("s", Action.SPLIT))    # Séparer
         if can_surrender:
-            options.append(("r", Action.SURRENDER))
+            options.append(("a", Action.SURRENDER))  # Abandonner
 
         # Le conseil doit porter sur une action réellement disponible : si la
         # stratégie recommande un double/split/abandon non autorisé (ex. double
@@ -840,11 +1030,15 @@ class UI:
             "abandonner": Action.SURRENDER, "surrender": Action.SURRENDER,
         }
         allowed = {a for _, a in options}
+        # Exemple concret tiré des actions réellement disponibles ce tour.
+        sample_key, sample_action = options[0]
+        prompt = (f"Votre action — tapez la touche (ex. « {sample_key} » pour "
+                  f"{sample_action.label}) ou le mot entier : ")
         while True:
-            choice = input("Votre action : ").strip().lower()
+            choice = input(prompt).strip().lower()
             if choice in valid_keys:
                 return valid_keys[choice]
             if choice in word_aliases and word_aliases[choice] in allowed:
                 return word_aliases[choice]
-            self.error(f"Action invalide. Tapez {'/'.join(valid_keys)} "
+            self.error(f"Action invalide. Tapez une touche ({'/'.join(valid_keys)}) "
                        f"ou le nom complet ({', '.join(a.label.lower() for _, a in options)}).")
