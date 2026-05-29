@@ -334,21 +334,26 @@ class Round:
             hand.surrender()
             return
         if action is Action.SPLIT:
-            self._split(hand)
+            # Si le split est refusé (max atteint, ré-split d'As interdit…), on
+            # tire une carte : la main n'est plus une paire intacte, ce qui évite
+            # de boucler indéfiniment si une UI/IA redemande SPLIT.
+            if not self._split(hand):
+                self._deal_card(hand)
             return
 
-    def _split(self, hand: Hand) -> None:
+    def _split(self, hand: Hand) -> bool:
+        """Sépare la paire. Renvoie False si le split n'a pas pu être effectué."""
         if not hand.can_split:
-            return
+            return False
         # Compte les mains déjà ouvertes pour respecter max_splits.
         if len(self.player.hands) > self.rules.max_splits:
-            return
+            return False
         # Restriction : ré-split d'As souvent interdit.
         if hand.cards[0].is_ace and not self.rules.resplit_aces and any(
             (h is not hand) and h.cards and h.cards[0].is_ace
             for h in self.player.hands
         ):
-            return
+            return False
 
         second_card = hand.remove_last_card()
         new_hand = Hand(bet=hand.bet)
@@ -378,6 +383,7 @@ class Round:
         if hand.cards[0].is_ace:
             hand.stand()
             new_hand.stand()
+        return True
 
     def _play_dealer(self) -> None:
         """Tour du croupier : tire selon la règle S17/H17."""

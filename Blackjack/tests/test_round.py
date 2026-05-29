@@ -238,6 +238,36 @@ class TestPeekBlackjack(unittest.TestCase):
         self.assertAlmostEqual(net, 0.0)
 
 
+class TestSplitGuard(unittest.TestCase):
+    """Un split refusé (max atteint) ne doit pas boucler à l'infini."""
+
+    def test_split_refuse_au_max_tire_une_carte(self):
+        rnd = _make_round(Rules(max_splits=3))
+        # 4 mains déjà ouvertes (= au maximum) dont une paire.
+        for _ in range(3):
+            h = Hand(bet=10.0)
+            h.add_card(_card(Rank.TWO)); h.add_card(_card(Rank.THREE))
+            rnd.player.add_hand(h)
+        pair = Hand(bet=10.0)
+        pair.add_card(_card(Rank.EIGHT)); pair.add_card(_card(Rank.EIGHT))
+        rnd.player.add_hand(pair)
+        self.assertEqual(len(rnd.player.hands), 4)
+
+        self.assertFalse(rnd._split(pair))          # split refusé (max atteint)
+        rnd._apply_action(pair, Action.SPLIT)        # repli : tire une carte
+        self.assertEqual(len(pair.cards), 3)         # la main a progressé
+        self.assertFalse(pair.is_pair)               # plus une paire → pas de boucle
+        self.assertEqual(len(rnd.player.hands), 4)   # aucune main créée
+
+    def test_split_normal_reussit(self):
+        rnd = _make_round(Rules(max_splits=3))
+        pair = Hand(bet=10.0)
+        pair.add_card(_card(Rank.EIGHT)); pair.add_card(_card(Rank.EIGHT))
+        rnd.player.add_hand(pair)
+        self.assertTrue(rnd._split(pair))            # split effectué
+        self.assertEqual(len(rnd.player.hands), 2)   # une 2e main créée
+
+
 class TestInsurance(unittest.TestCase):
     """L'assurance est résolue et son bilan (``_insurance_net``) est correct."""
 

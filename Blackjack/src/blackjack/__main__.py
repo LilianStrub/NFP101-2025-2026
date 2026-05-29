@@ -166,15 +166,49 @@ def _game_loop(ui: UI, game: "Game", player: HumanPlayer,
     ui.show_stats(game.stats)
 
 
+def _sim_bet(strategy: Strategy, game: "Game", rules, base_unit: float) -> float:
+    """Mise d'une manche en simulation.
+
+    Pour un compteur, on mise davantage quand le sabot est favorable (palier
+    1× → 8× selon le true count, plafonné par la mise max). Pour les autres,
+    la mise reste fixe (l'unité de base).
+    """
+    if strategy.counts_cards:
+        return strategy.betting_units(game.shoe.decks_remaining, base_unit,
+                                      rules.max_bet)
+    return base_unit
+
+
 def _compare_strategies(ui: UI) -> None:
     """Mode simulation : compare les stratégies sur plusieurs milliers de mains."""
     ui.header("Mode simulation comparative")
+
+    # Explication : pourquoi ce mode existe et comment lire le tableau.
+    ui.info("Un robot joue automatiquement des milliers de mains avec chaque "
+            "stratégie, puis on compare leurs résultats.")
+    ui.write()
+    ui.write("  • EV par main : gain net moyen par unité misée. Négatif = "
+             "avantage du casino ; proche de 0 ou positif = favorable au joueur.")
+    ui.write("  • Win %       : part de mains gagnées.   • BJ % : part de "
+             "blackjacks naturels.")
+    ui.write()
+    ui.info("La stratégie de base ramène l'EV tout près de l'avantage de la "
+            "maison. Les stratégies de comptage MISENT PLUS quand le sabot est "
+            "favorable (mise variable selon le « true count ») : leur EV peut "
+            "alors devenir meilleure, voire positive.")
+    ui.info("Plus le nombre de manches est grand, plus le résultat est fiable.")
+    ui.write()
+
     n_rounds = ui.ask_int("Combien de manches simuler par stratégie ?",
-                           default=2000, minimum=100, maximum=50000)
-    bet_size = ui.ask_float("Taille de la mise (fixe)", default=10.0,
-                             minimum=0.5, maximum=1000.0)
+                           default=5000, minimum=100, maximum=50000)
+    bet_size = ui.ask_float("Mise de base (unité ; les compteurs misent 1× à 8×)",
+                            default=10.0, minimum=0.5, maximum=1000.0)
 
     rules = load_rules()
+    ui.write()
+    ui.info("Simulation en cours… une ligne s'affiche au fur et à mesure que "
+            "chaque stratégie termine (augmentez le nombre de manches pour plus "
+            "de fiabilité, au prix d'un calcul plus long).")
     ui.write()
     ui.write(f"{'Stratégie':<25}{'EV par main':>16}{'Win %':>10}{'BJ %':>10}")
     ui.write("─" * 61)
@@ -188,7 +222,7 @@ def _compare_strategies(ui: UI) -> None:
         game = Game(rules=rules, player=sim_player, strategy=strategy, ui=None)
         for _ in range(n_rounds):
             try:
-                game.play_round(bet_size)
+                game.play_round(_sim_bet(strategy, game, rules, bet_size))
             except ValueError:
                 break
         ev = game.stats.expected_value * 100
@@ -197,8 +231,14 @@ def _compare_strategies(ui: UI) -> None:
               if game.stats.hands_played else 0.0)
         ui.write(f"{cls.name:<25}{ev:>+15.3f}%{wr:>9.2f}%{bj:>9.2f}%")
     ui.write()
-    ui.info("Lecture : EV = espérance nette par unité misée. "
-            "Plus c'est proche de 0, mieux c'est pour le joueur.")
+    ui.info("Lecture : la stratégie de base mise à plat et tend vers l'avantage "
+            "de la maison (≈ -0,5 %). Les comptages varient leur mise sur les "
+            "sabots favorables et peuvent dégager une EV positive — c'est "
+            "l'essence du comptage.")
+    ui.info("Attention : avec une mise variable, la variance est forte. Sur peu "
+            "de manches, le hasard domine (un compteur peut sembler moins bon). "
+            "Augmentez fortement le nombre de manches (p. ex. 50000) pour voir "
+            "l'avantage se confirmer.")
 
 
 def _about(ui: UI) -> None:
