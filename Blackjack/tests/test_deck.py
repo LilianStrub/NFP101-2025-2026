@@ -36,6 +36,14 @@ class TestShoe(unittest.TestCase):
             s.draw()
         self.assertTrue(s.needs_shuffle)
 
+    def test_burn_retire_une_carte(self):
+        s = Shoe(num_decks=1, seed=42)
+        s.shuffle()
+        avant = s.cards_remaining
+        carte = s.burn()
+        self.assertIsNotNone(carte)
+        self.assertEqual(s.cards_remaining, avant - 1)
+
     def test_parametres_invalides(self):
         with self.assertRaises(ValueError):
             Shoe(num_decks=0)

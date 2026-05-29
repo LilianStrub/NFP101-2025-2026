@@ -60,6 +60,7 @@ class Round:
         self.dealer.add_hand(Hand())
 
         self._insurance_bet: float = 0.0
+        self._insurance_net: float = 0.0  # +2x si gagnée, -x si perdue, 0 sinon
 
         if self.rules.no_hole_card:
             return self._play_enhc(initial_hand)
@@ -125,6 +126,9 @@ class Round:
             if dealer_bj:
                 # Assurance gagnée : 2:1 (on rend la mise + le double).
                 self.player.credit(self._insurance_bet * 3)
+                self._insurance_net = self._insurance_bet * 2
+            else:
+                self._insurance_net = -self._insurance_bet
             if self.ui is not None:
                 self.ui.show_insurance_result(dealer_bj, self._insurance_bet)
 
@@ -138,10 +142,11 @@ class Round:
         return self._settle()
 
     # ------------------------------------------------------------------ #
-    # Flux avec hole card + peek (règle française)
+    # Flux avec hole card + peek (règle internationale, la plus répandue)
     # ------------------------------------------------------------------ #
     def _play_peek(self, initial_hand: Hand) -> List[Tuple[Hand, Outcome, float]]:
-        """Distribution avec hole card et peek silencieux (casinos français)."""
+        """Distribution avec carte cachée et peek silencieux (variante américaine,
+        adoptée par la majorité des casinos et tables en ligne)."""
         if self.ui is not None:
             self.ui.narrate("Nouvelle donne. Le croupier distribue les cartes une à une.")
             self.ui.show_pre_deal(self.player, self.dealer, hide_hole=True)
@@ -194,6 +199,7 @@ class Round:
             self.strategy.observe(hole)
             if self._insurance_bet > 0:
                 self.player.credit(self._insurance_bet * 3)
+                self._insurance_net = self._insurance_bet * 2
             if self.ui is not None:
                 self.ui.narrate("Le croupier a un Blackjack ! Il dévoile sa carte cachée.",
                                 pause=False)
@@ -203,8 +209,10 @@ class Round:
             return self._settle(player_blackjack=player_bj, dealer_blackjack=True)
 
         # Pas de blackjack : assurance perdue si elle a été prise.
-        if self._insurance_bet > 0 and self.ui is not None:
-            self.ui.show_insurance_result(False, self._insurance_bet)
+        if self._insurance_bet > 0:
+            self._insurance_net = -self._insurance_bet
+            if self.ui is not None:
+                self.ui.show_insurance_result(False, self._insurance_bet)
 
         # Tour du joueur — si blackjack naturel, afficher les mains sans actions.
         if not player_bj:
@@ -392,6 +400,7 @@ class Round:
                 break
             self._deal_card(self.dealer.hand)
             if self.ui is not None:
+                self.ui.narrate("Le croupier tire une carte.", pause=False)
                 self.ui.show_dealer_draw(self.dealer)
             if self.dealer.hand.is_bust:
                 if self.ui is not None:
@@ -432,7 +441,11 @@ class Round:
         if player_blackjack:
             return Outcome.BLACKJACK, bet + bet * self.rules.blackjack_payout
         if dealer_blackjack:
-            # En ENHC le joueur perd sa mise totale (y compris doublée/splittée).
+            # OBO (Original Bets Only) : en ENHC, le joueur a pu doubler avant
+            # que le croupier ne révèle son Blackjack ; on lui rend alors la
+            # portion doublée et il ne perd que sa mise d'origine.
+            if self.rules.original_bets_only and hand.doubled:
+                return Outcome.LOSS, bet / 2
             return Outcome.LOSS, 0.0
 
         if hand.surrendered:

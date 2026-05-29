@@ -14,6 +14,7 @@ from .game import Game
 from .players import HumanPlayer
 from .strategies import STRATEGIES, BasicStrategy, ManualStrategy, Strategy
 from .ui import UI
+from .ui.audio import WEBRADIOS, AmbientMusic
 from .utils import configure_logging, load_rules
 
 logger = logging.getLogger(__name__)
@@ -63,7 +64,6 @@ def _tutorial_session(ui: UI) -> None:
 
     strategy: Strategy = BasicStrategy()
     ui.learning_mode = True
-    ui._explained_actions.clear()
     ui.set_animations(True)  # animations + narration : indispensables au didacticiel
 
     player = HumanPlayer(name="Joueur", bankroll=bankroll, strategy=strategy)
@@ -216,13 +216,61 @@ def _safe_fallback(action):  # noqa: ANN001
     return Action.STAND
 
 
+def _choose_music_source(ui: UI) -> Optional[str]:
+    """Laisse choisir la source : morceau généré (None) ou une webradio lounge."""
+    ui.write()
+    ui.info("Source de la musique d'ambiance :")
+    ui.write("  1   Morceau d'ambiance généré (hors-ligne)")
+    for i, (label, _) in enumerate(WEBRADIOS, start=2):
+        ui.write(f"  {i}   Webradio — {label}")
+    choice = ui.ask_int("Votre choix", default=1, minimum=1,
+                        maximum=1 + len(WEBRADIOS))
+    if choice == 1:
+        return None
+    return WEBRADIOS[choice - 2][1]
+
+
+def _toggle_music(ui: UI, music: AmbientMusic) -> None:
+    """Active/coupe la musique d'ambiance et informe le joueur."""
+    if music.enabled:
+        music.stop()
+        ui.info("Musique d'ambiance coupée.")
+        return
+
+    # Choix de la source (sauf si imposée par BLACKJACK_MUSIC).
+    if not music.has_fixed_source:
+        music.set_source(_choose_music_source(ui))
+
+    if not music.available():
+        if music.is_webradio:
+            ui.warn("Webradio indisponible : il faut ffplay, mpg123 ou cvlc "
+                    "(afplay ne lit pas les flux réseau).")
+        else:
+            ui.warn("Aucun lecteur audio trouvé (afplay, aplay, paplay, ffplay…).")
+        return
+
+    if music.start():
+        ui.success("Musique d'ambiance activée.")
+        if music.is_webradio:
+            ui.info("Connexion à la webradio en cours (nécessite une connexion "
+                    "internet).")
+        elif music.using_generated:
+            ui.info("Astuce : BLACKJACK_MUSIC=<dossier|fichier|URL> pour brancher "
+                    "votre propre playlist de casino.")
+    else:
+        ui.warn("Source musicale introuvable ou vide "
+                "(vérifiez la variable BLACKJACK_MUSIC).")
+
+
 def main(argv: Optional[list] = None) -> int:
     """Point d'entrée CLI."""
     configure_logging()
     ui = UI()
+    music = AmbientMusic()
     try:
         while True:
-            choice = ui.main_menu()
+            choice = ui.main_menu(music_on=music.enabled,
+                                  music_available=music.available())
             if choice == "1":
                 _play_session(ui)
             elif choice == "2":
@@ -233,6 +281,8 @@ def main(argv: Optional[list] = None) -> int:
                 _compare_strategies(ui)
             elif choice == "5":
                 _about(ui)
+            elif choice == "6":
+                _toggle_music(ui, music)
             elif choice == "0":
                 ui.success("Au revoir !")
                 return 0
@@ -242,6 +292,8 @@ def main(argv: Optional[list] = None) -> int:
         ui.write()
         ui.success("Au revoir !")
         return 0
+    finally:
+        music.stop()
 
 
 if __name__ == "__main__":

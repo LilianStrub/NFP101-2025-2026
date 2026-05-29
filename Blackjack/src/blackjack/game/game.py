@@ -55,6 +55,15 @@ class Statistics:
         elif outcome is Outcome.LOSS:
             self.losses += 1
 
+    def record_side_bet(self, wager: float, net: float) -> None:
+        """Comptabilise une mise annexe (assurance) dans le total misé et le bilan.
+
+        N'affecte pas le compte de mains gagnées/perdues : seule l'espérance et
+        le bilan net intègrent ce pari pour rester cohérents avec le solde réel.
+        """
+        self.total_bet += wager
+        self.total_won += net
+
     @property
     def win_rate(self) -> float:
         if self.hands_played == 0:
@@ -114,6 +123,9 @@ class Game:
                     self.strategy, ui=self.ui)
         results = rnd.play(bet)
         self.stats.rounds_played += 1
+        # Mise annexe : l'assurance entre dans le bilan et l'EV (cohérence solde).
+        if rnd._insurance_bet > 0:
+            self.stats.record_side_bet(rnd._insurance_bet, rnd._insurance_net)
         for hand, outcome, net in results:
             self.stats.record(outcome, net, hand.bet)
             logger.info("Manche %d : %s — main %s, net=%.2f",

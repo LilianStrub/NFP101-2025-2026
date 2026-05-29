@@ -61,31 +61,18 @@ _ACTION_HELP = {
 # --------------------------------------------------------------------------- #
 # Rendu des cartes : mini-boîtes Unicode 5 × 7
 # --------------------------------------------------------------------------- #
-def _card_text(card: Card) -> Text:
-    """Rend une carte sous forme d'une petite boîte Unicode colorée."""
+def _card_lines(card: Card) -> Tuple[List[str], str]:
+    """Renvoie les 5 lignes de la boîte Unicode d'une carte et son style."""
     rank = card.rank.label
     suit = card.suit.symbol
-    style = "heart" if card.suit.is_red else "spade"
-    body = (
-        "┌─────┐\n"
-        f"│{rank.ljust(5)}│\n"
-        f"│  {suit}  │\n"
-        f"│{rank.rjust(5)}│\n"
-        "└─────┘"
-    )
-    return Text(body, style=style)
-
-
-def _hidden_card_text() -> Text:
-    """Carte face cachée."""
-    body = (
-        "┌─────┐\n"
-        "│▒▒▒▒▒│\n"
-        "│▒▒▒▒▒│\n"
-        "│▒▒▒▒▒│\n"
-        "└─────┘"
-    )
-    return Text(body, style="back")
+    lines = [
+        "┌─────┐",
+        f"│{rank.ljust(5)}│",
+        f"│  {suit}  │",
+        f"│{rank.rjust(5)}│",
+        "└─────┘",
+    ]
+    return lines, ("heart" if card.suit.is_red else "spade")
 
 
 def _hand_renderable(hand: Hand, hide_first: bool = False,
@@ -112,33 +99,13 @@ def _hand_renderable(hand: Hand, hide_first: bool = False,
     if hide_first:
         # Cartes visibles (up card et suivantes) à gauche, hole card cachée à droite.
         for card in cards[1:]:
-            rank = card.rank.label
-            suit = card.suit.symbol
-            lines = [
-                "┌─────┐",
-                f"│{rank.ljust(5)}│",
-                f"│  {suit}  │",
-                f"│{rank.rjust(5)}│",
-                "└─────┘",
-            ]
-            style = "heart" if card.suit.is_red else "spade"
-            card_blocks.append((lines, style))
+            card_blocks.append(_card_lines(card))
         # La hole card n'est représentée que si elle a réellement été distribuée.
         if cards:
             card_blocks.append(_hidden)
     else:
         for card in cards:
-            rank = card.rank.label
-            suit = card.suit.symbol
-            lines = [
-                "┌─────┐",
-                f"│{rank.ljust(5)}│",
-                f"│  {suit}  │",
-                f"│{rank.rjust(5)}│",
-                "└─────┘",
-            ]
-            style = "heart" if card.suit.is_red else "spade"
-            card_blocks.append((lines, style))
+            card_blocks.append(_card_lines(card))
 
     if add_hidden:
         card_blocks.append(_hidden)
@@ -231,9 +198,8 @@ class UI:
         self.console = Console(theme=THEME, file=stream, highlight=False)
         self.round_number: int = 0
         self.tour_number: int = 0
-        # Mode apprentissage : explique chaque action la 1re fois.
+        # Mode apprentissage (didacticiel) : conseil + explications + narration.
         self.learning_mode: bool = False
-        self._explained_actions: set = set()
         # Animations activées par défaut ; pilotent les délais de suspense.
         self.animations_enabled: bool = True
         # Délai entre chaque carte à la distribution initiale.
@@ -254,8 +220,8 @@ class UI:
     def header(self, text: str) -> None:
         self.console.print()
         self.console.print(
-            Panel(Text(text, style="bold cyan", justify="center"),
-                  border_style="cyan", padding=(0, 2))
+            Panel(Text(text, style="bold gold", justify="center"),
+                  border_style="felt", padding=(0, 2))
         )
 
     def info(self, text: str) -> None:
@@ -296,12 +262,18 @@ class UI:
     # ------------------------------------------------------------------ #
     # Écrans de menus
     # ------------------------------------------------------------------ #
-    def main_menu(self) -> str:
+    def main_menu(self, music_on: bool = False, music_available: bool = True) -> str:
         """Affiche le menu principal et renvoie le choix saisi."""
         self.console.print()
         self.console.print(_figlet("BLACKJACK", style="gold", font="slant"))
-        subtitle = Text("Casino  —  règles françaises", style="felt", justify="center")
+        subtitle = Text("Casino  —  règles internationales", style="felt", justify="center")
         self.console.print(subtitle)
+
+        if not music_available:
+            music_line = "   Musique d'ambiance (aucun lecteur audio)\n"
+        else:
+            music_line = (f"   Musique d'ambiance : "
+                          f"{'activée' if music_on else 'désactivée'}\n")
 
         options = Text()
         options.append("  1", style="gold"); options.append("   Démarrer une nouvelle partie\n")
@@ -309,6 +281,7 @@ class UI:
         options.append("  3", style="gold"); options.append("   Règles du jeu\n")
         options.append("  4", style="gold"); options.append("   Comparer les stratégies (simulation)\n")
         options.append("  5", style="gold"); options.append("   À propos / aide\n")
+        options.append("  6", style="gold"); options.append(music_line)
         options.append("  0", style="gold"); options.append("   Quitter")
 
         self.console.print(Panel(options, title=Text(" Menu principal ", style="gold"),
@@ -376,16 +349,16 @@ class UI:
         self.console.print(Panel(pay, title=Text(" 💰 Paiements ", style="gold"),
                                  border_style="felt", padding=(0, 2)))
 
-        # Règles françaises spécifiques
-        fr_lines = [
+        # Règles spécifiques de la table
+        table_lines = [
             "• Le croupier reste sur 17 'soft' (S17).",
             "• Doubler est limité aux totaux durs de 9, 10 ou 11.",
             "• Pas d'abandon (surrender) autorisé.",
             "• 6 jeux de cartes mélangés (sabot).",
         ]
-        fr = Text("\n".join(fr_lines))
-        self.console.print(Panel(fr,
-                                 title=Text(" 🇫🇷 Règles françaises ", style="gold"),
+        table_rules = Text("\n".join(table_lines))
+        self.console.print(Panel(table_rules,
+                                 title=Text(" 📋 Règles de la table ", style="gold"),
                                  border_style="felt", padding=(0, 2)))
 
         self.console.print()
@@ -551,15 +524,12 @@ class UI:
         dealer_hand_shown.add_card(dealer.up_card)
 
         hand = player.hands[0] if player.hands else Hand()
-        cols = Columns(
-            [
-                _hand_panel(dealer_hand_shown, "Croupier", add_hidden=True, border="felt"),
-                _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
-            ],
-            padding=(0, 2),
-            expand=False,
-        )
-        self.console.print(cols)
+        # Empilé (croupier au-dessus / main en dessous), comme partout ailleurs.
+        self.console.print(Group(
+            _hand_panel(dealer_hand_shown, "Croupier", add_hidden=True, border="felt"),
+            Text(""),
+            _hand_panel(hand, "Votre main", show_bet=True, border="gold"),
+        ))
 
     def show_showdown(self, player: HumanPlayer, dealer: Dealer) -> None:
         """Affiche les deux mains avec le jeu complet du croupier révélé.
@@ -603,9 +573,11 @@ class UI:
 
     def show_dealer_draw(self, dealer: Dealer) -> None:
         self._stop_deal_live()
-        n = len(dealer.hand.cards)
         self.console.print()
-        self.console.print(Text(f"Croupier tire sa {n}e carte :", style="info"))
+        # En didacticiel, la narration annonce déjà le tirage : on évite le doublon.
+        if not self.learning_mode:
+            n = len(dealer.hand.cards)
+            self.console.print(Text(f"Croupier tire sa {n}e carte :", style="info"))
         self.console.print(Padding(
             _hand_panel(dealer.hand, "Croupier", up_card_first=True), (1, 0, 0, 2)
         ))

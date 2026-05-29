@@ -46,6 +46,10 @@ class Rules:
     """True = règle ENHC (casinos européens/français) : le croupier ne prend
     pas de carte cachée ; sa 2e carte est tirée après le tour du joueur."""
 
+    original_bets_only: bool = True
+    """OBO — en ENHC, si le croupier fait Blackjack, le joueur ne perd que sa
+    mise d'origine ; la portion ajoutée par un double lui est rendue."""
+
     insurance_allowed: bool = True
     """Proposer l'assurance quand le croupier montre un As."""
 

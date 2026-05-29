@@ -47,18 +47,42 @@ le cours **NFP01 / CNAM** (Adrien Escourrou) :
 
 ## ⭐ Fonctionnalités
 
-- **Jeu de Blackjack complet** : Hit, Stand, Double, Split, Surrender.
+- **Jeu de Blackjack complet** : Hit, Stand, Double, Split, Surrender,
+  assurance (carte cachée + peek du croupier).
 - **Sabot multi-deck** avec carte de coupe, remélange automatique et brûlage
   de la première carte après chaque mélange (comme au casino).
-- **Narration pas à pas** (en mode apprentissage) : chaque action de la table
-  est commentée — distribution carte par carte, vérification du croupier,
-  carte de coupe, mélange et brûlage — pour comprendre le déroulement réel.
+- **Mode didacticiel** : tout est commenté en temps réel (le croupier
+  « parle »), avec conseil + explications des actions + animations — pensé
+  pour les débutants.
+- **Narration pas à pas** : chaque action de la table est commentée —
+  distribution carte par carte, peek du croupier, mélange et brûlage.
 - **Règles paramétrables** (S17/H17, DAS, paiement blackjack, etc.).
 - **Aide à la décision en temps réel** selon la stratégie sélectionnée.
-- **8 stratégies** au choix (1 manuelle, 1 de base, 6 comptages).
+- **9 stratégies** au choix (1 manuelle, 1 de base, 7 comptages).
 - **Mise conseillée** par true count pour les stratégies de comptage.
 - **Mode simulation** : compare les stratégies sur des milliers de mains.
 - **Statistiques de session** : EV, win rate, blackjacks naturels…
+- **Musique d'ambiance** activable depuis le menu (sans dépendance : lecteur
+  système type `afplay`/`aplay`/`ffplay`). À l'activation, on choisit la source :
+  - un **morceau de lounge jazz généré** à la volée (≈ 50 s, modulant et
+    randomisé à chaque session) — fonctionne **hors-ligne** ;
+  - une **webradio lounge** intégrée (flux gratuits SomaFM : *Groove Salad*,
+    *Secret Agent*, *Lush*) — musique continue, **jamais en boucle** (nécessite
+    internet + un lecteur de flux : `ffplay`, `mpg123` ou `cvlc`).
+
+  Pour votre **propre playlist de casino**, définissez la variable
+  d'environnement `BLACKJACK_MUSIC` :
+  - un **fichier** audio,
+  - un **dossier** → tous les morceaux sont lus en ordre aléatoire,
+  - une **URL** de flux (webradio lounge/downtempo — p. ex. les flux gratuits
+    de SomaFM type *Groove Salad* / *Secret Agent*) → musique continue.
+
+  ```bash
+  BLACKJACK_MUSIC="$HOME/Music/casino_lounge" python -m blackjack   # dossier
+  BLACKJACK_MUSIC="https://exemple.fm/lounge" python -m blackjack    # webradio
+  ```
+
+  Se désactive d'elle-même si aucun lecteur audio n'est présent.
 - **Journaux** dans `logs/blackjack.log`.
 - **Configuration JSON** dans `config/default.json`.
 - **Tests unitaires et d'intégration** (`unittest`, sans dépendance externe).
@@ -106,21 +130,29 @@ Le menu principal s'affiche en grosses lettres ASCII dorées et propose :
 
 ```
   1   Démarrer une nouvelle partie
-  2   Règles du jeu
-  3   Comparer les stratégies (simulation)
-  4   À propos / aide
+  2   Didacticiel — apprendre en jouant
+  3   Règles du jeu
+  4   Comparer les stratégies (simulation)
+  5   À propos / aide
+  6   Musique d'ambiance : activée / désactivée
   0   Quitter
 ```
 
 ### Démarrer une partie
 
 1. Saisissez votre solde de départ.
-2. Activez ou non le **mode apprentissage** (conseil + explications des
-   actions affichés à chaque tour).
-3. Sinon, choisissez votre stratégie d'aide dans la liste.
+2. Choisissez d'afficher ou non l'aide d'une **stratégie** (et laquelle).
+3. Activez ou non les **animations** (distribution carte par carte, suspense).
 4. Misez puis jouez votre main avec les lettres `h` / `s` / `d` / `p` / `r`
    ou en tapant le mot entier : `tirer`, `rester`, `doubler`, `séparer`,
    `abandonner`.
+
+### Didacticiel
+
+Pensé pour les débutants : tout est commenté en temps réel (le croupier
+« parle » à chaque action), le conseil de la stratégie de base s'affiche à
+chaque tour, chaque action possible est expliquée, et les animations sont
+activées. Idéal pour comprendre le déroulement d'une manche.
 
 À chaque coup, le conseil de la stratégie s'affiche dans un panneau magenta :
 
@@ -132,9 +164,9 @@ Le menu principal s'affiche en grosses lettres ASCII dorées et propose :
 
 ### Règles du jeu
 
-Le mode 2 affiche un récapitulatif complet (objectif, valeur des cartes,
-déroulement, actions, paiements, règles françaises) dans des panneaux
-encadrés.
+Le mode « Règles du jeu » affiche un récapitulatif complet (objectif, valeur
+des cartes, déroulement, actions, paiements, règles de la table) dans des
+panneaux encadrés.
 
 ### Comparer les stratégies
 
@@ -208,10 +240,13 @@ Les tests couvrent :
 
 - la création et l'immuabilité des cartes,
 - le calcul soft/hard d'une main, les paires, les bust, les blackjacks,
-- la reproductibilité du sabot (seed),
+- la reproductibilité du sabot (seed) et le brûlage de carte,
 - les valeurs des 7 systèmes de comptage,
 - l'équilibre des comptages équilibrés (somme = 0 sur un jeu),
 - des décisions canoniques de la stratégie de base,
+- le règlement des gains d'une manche (blackjack 3:2, push, abandon, bust,
+  égalité…) et la restriction de double aux durs 9-10-11,
+- le flux carte cachée + peek (Blackjack joueur / croupier / double),
 - une simulation de 200 manches bout en bout.
 
 ---
@@ -224,7 +259,7 @@ Les tests couvrent :
 - **Rich** plutôt qu'ANSI brut : composants prêts à l'emploi (`Panel`,
   `Table`, `Columns`) et couleurs RGB pour un rendu cohérent sur tous
   les terminaux modernes (macOS, Linux, Windows 10+).
-- **Patron Stratégie** : une `Strategy` abstraite + 8 implémentations,
+- **Patron Stratégie** : une `Strategy` abstraite + 9 implémentations,
   toutes interchangeables sans modifier le moteur (`Game`/`Round`). C'est
   l'illustration directe du **polymorphisme**.
 - **Composition** plutôt qu'héritage entre `_CountingStrategy` et
@@ -243,8 +278,8 @@ Les tests couvrent :
 ## ⚠️ Limites et pistes d'amélioration
 
 - **Pas de GUI** : l'interface reste en ligne de commande.
-- Pas d'**insurance** ni d'**even money** (peu d'impact sur l'EV avec la
-  stratégie de base, mais utile pour les comptages).
+- Pas d'**even money** sur blackjack joueur face à un As (l'assurance, elle,
+  est bien gérée).
 - Pas d'**index plays** ni d'« Illustrious 18 » : la stratégie est la
   même que la stratégie de base pour les compteurs, on ne dévie pas
   selon le true count.
