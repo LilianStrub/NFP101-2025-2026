@@ -261,6 +261,25 @@ Les tests couvrent :
 
 ---
 
+## 🎤 Support de soutenance
+
+Le support de soutenance est versionné dans `docs/` :
+
+- [`Presentation_Blackjack_NFP01.pptx`](docs/Presentation_Blackjack_NFP01.pptx)
+  — le diaporama (25 diapos, vulgarisé pour un public débutant) ;
+- [`Notes_presentateur.md`](docs/Notes_presentateur.md) — les notes de
+  présentateur, une section par diapo (discours, astuces, questions probables).
+
+Les deux fichiers sont produits par un script reproductible — pour les
+régénérer après modification :
+
+```bash
+pip install python-pptx        # ou : pip install -e ".[dev]"
+python docs/generate_slides.py
+```
+
+---
+
 ## 🔍 Choix techniques
 
 - **Dépendances minimales** : seules `rich` et `pyfiglet` sont requises,
