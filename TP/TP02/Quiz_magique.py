@@ -48,9 +48,10 @@ while rejouer == True:
             print(f"Faux, la bonne réponse était {nbr1 * nbr2}.")
             
     print(f"\nVous avez obtenu {correct} bonnes réponses sur {nbr_questions}.")
-    score = int((correct / nbr_questions) * 100)
-    
-    if score > 80:
+    score = round((correct / nbr_questions) * 100, 1)
+    print(f"Votre pourcentage de réussite est : {score} %")
+
+    if score >= 80:
         print(f"Bravo !")
     elif score >= 50:
         print("Pas mal, continue à t'entraîner.")

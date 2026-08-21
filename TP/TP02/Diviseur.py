@@ -10,4 +10,4 @@ if diviseur == 0:
     print("aucun !")
     print("Il est premier")
 else:
-    print(f"(soit {diviseur} diviseurs propres)")  # Retour à la ligne finale
+    print(f"\n(soit {diviseur} diviseurs propres)")  # Retour à la ligne finale

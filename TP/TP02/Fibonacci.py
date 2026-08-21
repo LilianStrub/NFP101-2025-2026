@@ -1,7 +1,9 @@
-terme1, terme2 = 1, 1
-etage = int(input("Etage : "))
-for i in range(1, etage - 1):
-    somme = terme1 + terme2
-    terme1 = terme2
-    terme2 = somme
-print(f"Série de Fibonnaci à l'étage {etage} : {somme}")
+n = int(input("Nombre de termes : "))
+terme1, terme2 = 0, 1
+
+# Affiche la série des n premiers termes de Fibonacci : 0, 1, 1, 2, 3, 5, 8, ...
+print(f"Série de Fibonacci pour {n} termes : ", end="")
+for i in range(n):
+    print(terme1, end=" ")
+    terme1, terme2 = terme2, terme1 + terme2
+print()
