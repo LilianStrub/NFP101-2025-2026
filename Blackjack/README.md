@@ -58,7 +58,13 @@ le cours **NFP01 / CNAM** (Adrien Escourrou) :
   distribution carte par carte, peek du croupier, mélange et brûlage.
 - **Règles paramétrables** (S17/H17, DAS, paiement blackjack, etc.).
 - **Aide à la décision en temps réel** selon la stratégie sélectionnée.
-- **9 stratégies** au choix (1 manuelle, 1 de base, 7 comptages).
+- **11 stratégies** au choix (1 manuelle, 1 de base, 7 comptages, 2 agents IA).
+- **Regarder l'IA jouer** : un solveur exact (expectiminimax) et un agent
+  Q-learning (appris par renforcement, sans table fournie a priori) jouent
+  seuls, avec les mêmes animations et narration qu'une partie normale — voir
+  § [Regarder l'IA jouer](#regarder-lia-jouer). Portés du projet
+  [NFP106 « blackjack-ia »](https://github.com/LilianStrub/blackjack-ia), qui
+  documente en détail leur fonctionnement et leurs limites.
 - **Mise conseillée** par true count pour les stratégies de comptage.
 - **Mode simulation** : compare les stratégies sur des milliers de mains.
 - **Sauvegarde & reprise** : le solde, les statistiques cumulées « à vie » et
@@ -143,6 +149,7 @@ Le menu principal s'affiche en grosses lettres ASCII dorées et propose :
   4   Comparer les stratégies (simulation)
   5   À propos / aide
   6   Musique d'ambiance : activée / désactivée
+  7   Regarder l'IA jouer (solveur / Q-learning)
   0   Quitter
 ```
 
@@ -179,23 +186,40 @@ panneaux encadrés.
 ### Comparer les stratégies
 
 Le mode 3 simule N manches (par défaut 2 000) pour chaque stratégie et
-affiche un tableau récapitulatif (EV, win %, blackjacks).
+affiche un tableau récapitulatif (EV, win %, blackjacks) — le solveur et
+l'agent Q-learning y figurent au même titre que les autres.
+
+### Regarder l'IA jouer
+
+Le mode 7 fait jouer un agent IA tout seul, avec les mêmes animations,
+suspense et narration qu'une partie normale — seule la décision change de
+main. Deux agents au choix, portés du projet
+[NFP106 « blackjack-ia »](https://github.com/LilianStrub/blackjack-ia) :
+
+- **Solveur (recherche exacte)** : calcule par expectiminimax mémoïsé
+  l'espérance de gain de chaque action et joue toujours l'action optimale
+  (sous hypothèse de sabot infini). Aucune table codée en dur.
+- **Agent Q-learning** : a appris à jouer seul par essais/erreurs (3 millions
+  de mains simulées en auto-jeu), sans aucune connaissance préalable des
+  règles de décision.
 
 ---
 
 ## 🎲 Stratégies disponibles
 
-| Clé           | Stratégie                | Comptage |  Niveau |
-|---------------|--------------------------|:--------:|:-------:|
-| `manuelle`    | Manuelle (aucune aide)   | non      | —       |
-| `basique`     | Stratégie de Base        | non      | —       |
-| `hi-lo`       | Hi-Lo                    | oui      | 1       |
-| `ko`          | KO (Knock-Out)           | oui      | 1       |
-| `hi-opt-i`    | Hi-Opt I                 | oui      | 1       |
-| `hi-opt-ii`   | Hi-Opt II                | oui      | 2       |
-| `omega-ii`    | Omega II                 | oui      | 2       |
-| `zen`         | Zen Count                | oui      | 2       |
-| `red-7`       | Red 7                    | oui      | 1       |
+| Clé           | Stratégie                | Comptage |  Niveau      |
+|---------------|--------------------------|:--------:|:------------:|
+| `manuelle`    | Manuelle (aucune aide)   | non      | —            |
+| `basique`     | Stratégie de Base        | non      | —            |
+| `hi-lo`       | Hi-Lo                    | oui      | 1            |
+| `ko`          | KO (Knock-Out)           | oui      | 1            |
+| `hi-opt-i`    | Hi-Opt I                 | oui      | 1            |
+| `hi-opt-ii`   | Hi-Opt II                | oui      | 2            |
+| `omega-ii`    | Omega II                 | oui      | 2            |
+| `zen`         | Zen Count                | oui      | 2            |
+| `red-7`       | Red 7                    | oui      | 1            |
+| `solveur`     | Solveur (recherche exacte) | non   | Expert — IA  |
+| `q-learning`  | Agent Q-learning         | non      | Expert — IA  |
 
 **Valeurs détaillées** de chaque comptage : voir le module
 [`strategies/counting.py`](src/blackjack/strategies/counting.py).
@@ -215,11 +239,14 @@ blackjack/
 ├── requirements.txt
 ├── config/
 │   └── default.json         ← règles modifiables
+├── data/
+│   └── q_table.json         ← Q-table pré-entraînée (agent Q-learning)
 ├── docs/
 │   └── documentation.md     ← documentation détaillée
 ├── src/
 │   └── blackjack/
 │       ├── __main__.py      ← point d'entrée CLI
+│       ├── ai/              ← solveur (expectiminimax) + agent Q-learning
 │       ├── core/            ← Card, Hand, Shoe, énumérations
 │       ├── players/         ← BasePlayer, Dealer, HumanPlayer
 │       ├── strategies/      ← toutes les stratégies (registre central)
@@ -288,9 +315,11 @@ python docs/generate_slides.py
 - **Rich** plutôt qu'ANSI brut : composants prêts à l'emploi (`Panel`,
   `Table`, `Columns`) et couleurs RGB pour un rendu cohérent sur tous
   les terminaux modernes (macOS, Linux, Windows 10+).
-- **Patron Stratégie** : une `Strategy` abstraite + 9 implémentations,
+- **Patron Stratégie** : une `Strategy` abstraite + 11 implémentations,
   toutes interchangeables sans modifier le moteur (`Game`/`Round`). C'est
-  l'illustration directe du **polymorphisme**.
+  l'illustration directe du **polymorphisme** — y compris pour les deux
+  agents IA (`ai/`), qui ne diffèrent des autres que par un calcul plus
+  coûteux derrière `recommend()`.
 - **Composition** plutôt qu'héritage entre `_CountingStrategy` et
   `BasicStrategy` : un comptage *contient* une stratégie de base au lieu
   d'en hériter. Cela évite la duplication et garde les responsabilités
@@ -314,6 +343,16 @@ python docs/generate_slides.py
   selon le true count.
 - Pas de **mise à jour de mise par paliers customisables**.
 - Pourrait être enrichi par un mode **multi-joueurs** sur la même table.
+- **Solveur et agent Q-learning approximatifs pour cette table précise** :
+  portés tels quels du projet NFP106 « blackjack-ia », qui autorise
+  l'abandon et le double sans restriction de total — alors que cette table
+  interdit l'abandon et limite le double aux durs 9-10-11
+  (`config/default.json`). Le moteur de jeu (`game/round.py`) reconvertit
+  déjà automatiquement toute action non autorisée en un coup légal (voir
+  `Round._can_double`/`_apply_action`), donc rien ne casse — mais les deux
+  agents restent une approximation, pas un optimum exact pour ces règles
+  précises. Piste : adapter le solveur à ces règles puis ré-entraîner
+  l'agent Q-learning en conséquence.
 
 ---
 

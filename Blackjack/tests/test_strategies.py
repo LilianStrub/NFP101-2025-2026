@@ -18,6 +18,8 @@ from blackjack.strategies import (
     KOStrategy,
     OmegaIIStrategy,
     Red7Strategy,
+    ReinforcementStrategy,
+    SolverStrategy,
     ZenStrategy,
 )
 
@@ -199,6 +201,46 @@ class TestBalancedSystems(unittest.TestCase):
 
     def test_zen_est_equilibre(self):
         self.assertEqual(self._sum_full_deck(ZenStrategy()), 0)
+
+
+class TestAIAgents(unittest.TestCase):
+    """Fumée pour les deux agents IA portés depuis le projet NFP106
+    « blackjack-ia » (voir ``ai/solver.py`` et ``ai/rl_agent.py``) : on ne
+    revalide pas leur algorithmie ici (déjà couverte côté NFP106), juste
+    qu'ils sont correctement branchés à l'interface ``Strategy`` de ce
+    projet et rendent le verdict évident sur des mains sans ambiguïté."""
+
+    def test_solveur_construction_sans_argument(self):
+        # Doit s'instancier sans argument comme toute entrée de STRATEGIES
+        # (charge les règles par défaut via ``utils.load_rules``).
+        strat = SolverStrategy()
+        self.assertIsInstance(strat, SolverStrategy)
+
+    def test_solveur_hard_20_stand(self):
+        s = SolverStrategy()
+        h = _hand(Rank.TEN, Rank.TEN)
+        self.assertEqual(s.recommend(h, Card(Rank.SIX, Suit.SPADES)), Action.STAND)
+
+    def test_solveur_hard_8_hit(self):
+        s = SolverStrategy()
+        h = _hand(Rank.FIVE, Rank.THREE)
+        self.assertEqual(s.recommend(h, Card(Rank.TEN, Suit.SPADES)), Action.HIT)
+
+    def test_q_learning_construction_sans_argument(self):
+        # Charge la Q-table pré-entraînée livrée avec le projet (data/q_table.json).
+        strat = ReinforcementStrategy()
+        self.assertIsInstance(strat, ReinforcementStrategy)
+        self.assertGreater(strat.trained_episodes, 0)
+
+    def test_q_learning_hard_20_stand(self):
+        s = ReinforcementStrategy()
+        h = _hand(Rank.TEN, Rank.TEN)
+        self.assertEqual(s.recommend(h, Card(Rank.SIX, Suit.SPADES)), Action.STAND)
+
+    def test_q_learning_hard_8_hit(self):
+        s = ReinforcementStrategy()
+        h = _hand(Rank.FIVE, Rank.THREE)
+        self.assertEqual(s.recommend(h, Card(Rank.TEN, Suit.SPADES)), Action.HIT)
 
 
 if __name__ == "__main__":

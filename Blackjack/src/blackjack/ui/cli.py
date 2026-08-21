@@ -87,6 +87,12 @@ _STRATEGY_GUIDE = {
                                    "demande beaucoup de concentration."),
     "zen":       ("Expert",       "Comptage avancé, bon compromis entre puissance "
                                    "et difficulté."),
+    "solveur":   ("Expert — IA",  "Calcule par recherche exacte (expectiminimax) "
+                                   "l'espérance de chaque action et joue toujours "
+                                   "l'action optimale. Ne compte pas les cartes."),
+    "q-learning": ("Expert — IA", "A appris à jouer seul par essais/erreurs "
+                                   "(3 millions de mains simulées), sans aucune "
+                                   "table fournie au départ."),
 }
 
 
@@ -319,11 +325,12 @@ class UI:
         options.append("  4", style="gold"); options.append("   Comparer les stratégies (simulation)\n")
         options.append("  5", style="gold"); options.append("   À propos / aide\n")
         options.append("  6", style="gold"); options.append(music_line)
+        options.append("  7", style="gold"); options.append("   Regarder l'IA jouer (solveur / Q-learning)\n")
         options.append("  0", style="gold"); options.append("   Quitter")
 
         self.console.print(Panel(options, title=Text(" Menu principal ", style="gold"),
                                  border_style="felt", padding=(1, 2)))
-        return input("Tapez le numéro de votre choix (0 à 6) puis Entrée : ").strip()
+        return input("Tapez le numéro de votre choix (0 à 7) puis Entrée : ").strip()
 
     def show_rules(self) -> None:
         """Affiche les règles du Blackjack pour les débutants."""

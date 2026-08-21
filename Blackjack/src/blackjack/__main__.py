@@ -10,9 +10,18 @@ import logging
 import sys
 from typing import Optional
 
+from .core import Action
 from .game import Game, Profile, load_profile, save_profile
 from .players import HumanPlayer
-from .strategies import STRATEGIES, BasicStrategy, ManualStrategy, Strategy
+from .strategies import (
+    STRATEGIES,
+    BasicStrategy,
+    ManualStrategy,
+    ReinforcementStrategy,
+    SolverStrategy,
+    Strategy,
+)
+from .strategies.reinforcement_strategy import Q_TABLE_PATH
 from .ui import UI
 from .ui.audio import WEBRADIOS, AmbientMusic
 from .utils import configure_logging, load_rules
@@ -224,8 +233,8 @@ def _compare_strategies(ui: UI) -> None:
                 "chaque stratégie termine (augmentez le nombre de manches pour plus "
                 "de fiabilité, au prix d'un calcul plus long).")
         ui.write()
-        ui.write(f"{'Stratégie':<25}{'EV par main':>16}{'Win %':>10}{'BJ %':>10}")
-        ui.write("─" * 61)
+        ui.write(f"{'Stratégie':<38}{'EV par main':>16}{'Win %':>10}{'BJ %':>10}")
+        ui.write("─" * 74)
         for key, cls in STRATEGIES.items():
             if cls is ManualStrategy:
                 continue
@@ -243,7 +252,7 @@ def _compare_strategies(ui: UI) -> None:
             wr = game.stats.win_rate * 100
             bj = (game.stats.blackjacks / game.stats.hands_played * 100
                   if game.stats.hands_played else 0.0)
-            ui.write(f"{cls.name:<25}{ev:>+15.3f}%{wr:>9.2f}%{bj:>9.2f}%")
+            ui.write(f"{cls.name:<38}{ev:>+15.3f}%{wr:>9.2f}%{bj:>9.2f}%")
         ui.write()
         ui.info("Lecture : la stratégie de base mise à plat et tend vers l'avantage "
                 "de la maison (≈ -0,5 %). Les comptages varient leur mise sur les "
@@ -257,6 +266,48 @@ def _compare_strategies(ui: UI) -> None:
         ui.write()
         if not ui.ask_yes_no("Lancer une autre simulation ?", default=False):
             break
+
+
+def _watch_ai_session(ui: UI) -> None:
+    """Regarder un agent IA (solveur exact ou Q-learning) jouer seul.
+
+    Reprend telles quelles les animations, la narration et l'audio de la
+    partie normale : seule la décision de jeu change de main (l'IA choisit
+    l'action au lieu du joueur), via :class:`_AutoPlayUI`.
+    """
+    ui.header("Regarder l'IA jouer")
+    ui.info("Un agent IA joue à votre place : vous observez ses décisions "
+            "avec les mêmes animations et le même suspense qu'en partie "
+            "normale.")
+    ui.write()
+
+    rules = load_rules()
+    agents = [("Solveur (recherche exacte)", lambda: SolverStrategy(rules))]
+    if Q_TABLE_PATH.exists():
+        agents.append(("Agent Q-learning", lambda: ReinforcementStrategy(rules)))
+    else:
+        ui.info("(Agent Q-learning indisponible : data/q_table.json est absent.)")
+    for i, (label, _) in enumerate(agents, start=1):
+        ui.write(f"  {i}. {label}")
+    choice = ui.ask_int("Quel agent regarder ?", default=1, minimum=1, maximum=len(agents))
+    strategy: Strategy = agents[choice - 1][1]()
+
+    ui.set_animations(ui.ask_yes_no("Activer les animations ?", default=True))
+    n = ui.ask_int("Combien de manches ?", default=5, minimum=1, maximum=1000)
+
+    player = HumanPlayer(name=strategy.name, bankroll=rules.starting_bankroll, strategy=strategy)
+    game = Game(rules=rules, player=player, strategy=strategy, ui=_AutoPlayUI(ui, strategy))
+
+    for _ in range(n):
+        if player.bankroll < rules.min_bet:
+            ui.error("Solde épuisé.")
+            break
+        ui.show_round_header(game.stats.rounds_played + 1)
+        ui.show_bankroll(player)
+        results = game.play_round(bet=rules.min_bet)
+        ui.show_round_results(results)
+
+    ui.show_stats(game.stats)
 
 
 def _about(ui: UI) -> bool:
@@ -333,6 +384,30 @@ class _SilentUI:
     def show_player_hand(self, *a, **k): pass         # noqa: E704
     def show_shuffle(self, *a, **k): pass             # noqa: E704
     def show_round_results(self, *a, **k): pass       # noqa: E704
+
+
+class _AutoPlayUI:
+    """UI pour le mode « Regarder l'IA jouer » : délègue tout (animations,
+    narration, audio…) à la vraie UI, sauf la décision de jeu, prise
+    automatiquement par la stratégie IA au lieu d'être demandée au clavier."""
+
+    def __init__(self, ui: UI, strategy: Strategy) -> None:
+        self._ui = ui
+        self._strategy = strategy
+
+    def prompt_action(self, player, hand, dealer_up, advice=None, rules=None,  # noqa: ANN001, ARG002
+                       hand_index: int = 0) -> Action:
+        action = self._strategy.recommend(hand, dealer_up)
+        if action is Action.DOUBLE and not hand.can_double:
+            return _safe_fallback(action)
+        if action is Action.SPLIT and not hand.can_split:
+            return _safe_fallback(action)
+        if action is Action.SURRENDER and not hand.can_surrender:
+            return _safe_fallback(action)
+        return action
+
+    def __getattr__(self, name):  # noqa: ANN001
+        return getattr(self._ui, name)
 
 
 def _safe_fallback(action):  # noqa: ANN001
@@ -415,6 +490,8 @@ def main(argv: Optional[list] = None) -> int:
                     return 0
             elif choice == "6":
                 _toggle_music(ui, music)
+            elif choice == "7":
+                _watch_ai_session(ui)
             elif choice == "0":
                 ui.success("Au revoir !")
                 return 0

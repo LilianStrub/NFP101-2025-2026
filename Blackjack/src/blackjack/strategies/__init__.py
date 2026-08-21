@@ -19,6 +19,8 @@ from .counting import (
     ZenStrategy,
 )
 from .manual import ManualStrategy
+from .reinforcement_strategy import ReinforcementStrategy
+from .solver_strategy import SolverStrategy
 
 #: Registre central des stratégies disponibles.
 STRATEGIES: Dict[str, Type[Strategy]] = {
@@ -31,6 +33,8 @@ STRATEGIES: Dict[str, Type[Strategy]] = {
     "omega-ii":      OmegaIIStrategy,
     "zen":           ZenStrategy,
     "red-7":         Red7Strategy,
+    "solveur":       SolverStrategy,
+    "q-learning":    ReinforcementStrategy,
 }
 
 
@@ -57,6 +61,8 @@ __all__ = [
     "OmegaIIStrategy",
     "ZenStrategy",
     "Red7Strategy",
+    "SolverStrategy",
+    "ReinforcementStrategy",
     "STRATEGIES",
     "get_strategy",
 ]
