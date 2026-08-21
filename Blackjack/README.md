@@ -203,6 +203,29 @@ main. Deux agents au choix, portés du projet
   de mains simulées en auto-jeu), sans aucune connaissance préalable des
   règles de décision.
 
+À chaque tour, un panneau affiche l'espérance de gain (EV, pour le solveur) ou
+la Q-value apprise (pour l'agent Q-learning) de **chaque action envisagée**,
+triée de la meilleure à la pire, avec une flèche sur celle jouée :
+
+```
+╭─  🔎 Solveur (recherche exacte)  ─╮
+│  -> Tirer      -0.2128            │
+│     Rester     -0.4754            │
+│     Doubler    -0.5067            │
+│                                   │
+╰────── 5♦ 7♥  (12) contre 7♣ ──────╯
+```
+
+**Comment l'exploiter** : ce n'est pas qu'une décoration — c'est ce qui
+répond à « pourquoi ce coup plutôt qu'un autre ? ». Un coup qui semble
+contre-intuitif (tirer sur un total à risque, par exemple) n'est presque
+jamais une erreur de l'IA : c'est le signe que le calcul et l'instinct
+divergent, et l'écart entre les deux EV vous dit *de combien* une autre
+décision aurait coûté. Sur peu de manches, ne jugez pas l'agent au
+gain/perte affiché en fin de session (§ variance) — jugez-le sur la
+cohérence de ses décisions affichées, et comparez-le chiffré au mode 4 pour
+un verdict fiable.
+
 ---
 
 ## 🎲 Stratégies disponibles

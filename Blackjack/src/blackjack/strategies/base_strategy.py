@@ -87,6 +87,20 @@ class Strategy(ABC):
         return min_bet
 
     # ------------------------------------------------------------------ #
+    # Assurance (pari annexe proposé quand le croupier montre un As)
+    # ------------------------------------------------------------------ #
+    def take_insurance(self) -> bool:
+        """Faut-il prendre l'assurance ?
+
+        Implémentation par défaut : jamais — c'est la réponse correcte pour
+        toute stratégie qui ne suit pas spécifiquement la proportion de
+        cartes à 10 restantes (l'assurance est un pari à EV négative pour un
+        sabot « moyen »). À surcharger pour une décision informée (voir
+        :class:`~.solver_strategy.SolverStrategy`, qui la calcule).
+        """
+        return False
+
+    # ------------------------------------------------------------------ #
     # Représentation
     # ------------------------------------------------------------------ #
     def __str__(self) -> str:

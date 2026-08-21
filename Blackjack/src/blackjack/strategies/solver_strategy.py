@@ -44,3 +44,6 @@ class SolverStrategy(Strategy):
         """Renvoie le détail des EV par action (utile pour une future UI
         d'explication de la décision)."""
         return self._solver.evaluate(hand, dealer_up)
+
+    def take_insurance(self) -> bool:
+        return self._solver.take_insurance()

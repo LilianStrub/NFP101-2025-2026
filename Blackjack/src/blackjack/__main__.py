@@ -276,9 +276,20 @@ def _watch_ai_session(ui: UI) -> None:
     l'action au lieu du joueur), via :class:`_AutoPlayUI`.
     """
     ui.header("Regarder l'IA jouer")
-    ui.info("Un agent IA joue à votre place : vous observez ses décisions "
-            "avec les mêmes animations et le même suspense qu'en partie "
-            "normale.")
+    ui.info("Un agent IA joue à votre place, avec les mêmes animations et le "
+            "même suspense qu'en partie normale. Deux façons radicalement "
+            "différentes d'arriver à jouer : le solveur calcule "
+            "l'espérance de gain (EV) de chaque action par recherche exacte "
+            "(expectiminimax) ; l'agent Q-learning l'a apprise en jouant "
+            "3 millions de mains contre lui-même, sans qu'on lui fournisse "
+            "aucune règle de décision au départ.")
+    ui.info("À chaque tour, un panneau détaille l'EV (ou la Q-value apprise) "
+            "de chaque action envisagée, triée de la meilleure à la pire : "
+            "c'est ce qui explique *pourquoi* l'action retenue (flèche) l'a "
+            "été, et de combien elle vaut mieux que les autres. Repérez les "
+            "coups qui vous surprennent (tirer sur 16, par exemple) : ce "
+            "n'est presque jamais une erreur, mais un signe que l'intuition "
+            "et le calcul divergent — le détail affiché vous dit pourquoi.")
     ui.write()
 
     rules = load_rules()
@@ -308,6 +319,10 @@ def _watch_ai_session(ui: UI) -> None:
         ui.show_round_results(results)
 
     ui.show_stats(game.stats)
+    ui.info("Sur si peu de manches, le résultat (gain/perte) est surtout du "
+            "hasard — ce n'est pas là-dessus qu'il faut juger un agent. Pour "
+            "un jugement chiffré et fiable, comparez les stratégies au "
+            "menu 4 sur plusieurs milliers de manches simulées.")
 
 
 def _about(ui: UI) -> bool:
@@ -397,7 +412,13 @@ class _AutoPlayUI:
 
     def prompt_action(self, player, hand, dealer_up, advice=None, rules=None,  # noqa: ANN001, ARG002
                        hand_index: int = 0) -> Action:
-        action = self._strategy.recommend(hand, dealer_up)
+        explain = getattr(self._strategy, "explain", None)
+        if explain is not None:
+            decision = explain(hand, dealer_up)
+            self._ui.show_ai_decision(hand, dealer_up, decision, self._strategy.name)
+            action = decision.action
+        else:
+            action = self._strategy.recommend(hand, dealer_up)
         if action is Action.DOUBLE and not hand.can_double:
             return _safe_fallback(action)
         if action is Action.SPLIT and not hand.can_split:
@@ -405,6 +426,12 @@ class _AutoPlayUI:
         if action is Action.SURRENDER and not hand.can_surrender:
             return _safe_fallback(action)
         return action
+
+    def prompt_insurance(self, player, dealer, max_insurance: float) -> float:  # noqa: ANN001, ARG002
+        """Décide l'assurance via la stratégie au lieu de la demander au
+        clavier (sinon le mode auto-play resterait bloqué sur un
+        ``input()`` dès que le croupier montre un As)."""
+        return max_insurance if self._strategy.take_insurance() else 0.0
 
     def __getattr__(self, name):  # noqa: ANN001
         return getattr(self._ui, name)

@@ -23,6 +23,7 @@ from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
+from ..ai.solver import Decision
 from ..core import Action, Card, Hand, Outcome
 from ..players import Dealer, HumanPlayer
 from ..strategies import STRATEGIES, Strategy
@@ -784,6 +785,25 @@ class UI:
         line.append(f"{player.name} : ", style="white")
         line.append(action.label, style="warn")
         self.console.print(line)
+
+    def show_ai_decision(self, hand: Hand, dealer_up: Card, decision: Decision,
+                          source_label: str) -> None:
+        """Détaille *pourquoi* l'IA a joué ce coup : l'espérance (ou la
+        Q-value apprise) de chaque action envisagée, triées de la meilleure
+        à la pire, avec une flèche sur celle retenue. ``source_label``
+        indique d'où viennent ces valeurs (ex. « Solveur — EV exacte » ou
+        « Q-table apprise »)."""
+        lines = Text()
+        for action, value in sorted(decision.expected_values.items(), key=lambda kv: -kv[1]):
+            marker = "-> " if action is decision.action else "   "
+            style = "good" if action is decision.action else "dim"
+            lines.append(f"{marker}{action.label:<10} {value:+.4f}\n", style=style)
+        panel = Panel(
+            lines, title=Text(f" 🔎 {source_label} ", style="advice"),
+            subtitle=Text(f"{hand.describe()} contre {dealer_up}", style="dim"),
+            border_style="advice", padding=(0, 2), expand=False,
+        )
+        self.console.print(panel)
 
     def show_player_hand(self, player: HumanPlayer, hand: Hand) -> None:
         """Affiche la main du joueur (ex. après un tirage qui la termine)."""

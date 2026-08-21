@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Tuple
 
 from ..core import Action, Card, Hand
 from .mdp import CARD_PROBS, add_card_value
-from .solver import ExpectiminimaxSolver
+from .solver import Decision, ExpectiminimaxSolver
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..game.rules import Rules
@@ -274,6 +274,37 @@ class QLearningAgent:
             # plutôt qu'un choix arbitraire.
             return self._fallback.evaluate(hand, dealer_up).action
         return max(known, key=lambda pair: pair[1])[0]
+
+    def take_insurance(self) -> bool:
+        """L'assurance n'a jamais été apprise (hors du champ de
+        l'entraînement, voir en-tête de module) : délègue au solveur exact,
+        comme pour SPLIT/SURRENDER."""
+        return self._fallback.take_insurance()
+
+    def explain(self, hand: Hand, dealer_up: Card) -> Decision:
+        """Comme ``recommend()``, mais renvoie le détail (les Q-values
+        connues pour cet état, ou le repli sur le solveur) au lieu de la
+        seule action — pour une UI qui veut montrer *pourquoi* l'agent a
+        choisi ce coup plutôt qu'un autre."""
+        if hand.can_split or hand.can_surrender:
+            fallback = self._fallback.evaluate(hand, dealer_up)
+            if (hand.can_split and fallback.action is Action.SPLIT) or \
+               (hand.can_surrender and fallback.action is Action.SURRENDER):
+                return fallback
+
+        state = (hand.total, hand.is_soft, dealer_up.value)
+        available = [Action.STAND, Action.HIT]
+        if hand.can_double:
+            available.append(Action.DOUBLE)
+
+        q = self._q.get(state, {})
+        known = {a: q[a] for a in available if a in q}
+        if not known:
+            # État jamais rencontré à l'entraînement : le solveur explique
+            # à sa place (voir recommend(), même repli).
+            return self._fallback.evaluate(hand, dealer_up)
+        best_action = max(known, key=known.get)
+        return Decision(action=best_action, expected_values=known)
 
     # ------------------------------------------------------------------ #
     # Persistance (entraînement long -> fichier JSON réutilisable)

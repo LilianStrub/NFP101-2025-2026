@@ -242,6 +242,28 @@ class TestAIAgents(unittest.TestCase):
         h = _hand(Rank.FIVE, Rank.THREE)
         self.assertEqual(s.recommend(h, Card(Rank.TEN, Suit.SPADES)), Action.HIT)
 
+    # ---- Assurance ---- #
+    def test_solveur_refuse_assurance(self):
+        # EV négative sous hypothèse de sabot infini (4/13 < 1/3) : jamais.
+        self.assertFalse(SolverStrategy().take_insurance())
+
+    def test_q_learning_refuse_assurance(self):
+        # Jamais appris (hors du champ d'entraînement) : délègue au solveur.
+        self.assertFalse(ReinforcementStrategy().take_insurance())
+
+    # ---- Détail de la décision (explain) ---- #
+    def test_solveur_explain_coherent_avec_recommend(self):
+        s = SolverStrategy()
+        h = _hand(Rank.FIVE, Rank.THREE)
+        up = Card(Rank.TEN, Suit.SPADES)
+        self.assertEqual(s.explain(h, up).action, s.recommend(h, up))
+
+    def test_q_learning_explain_coherent_avec_recommend(self):
+        s = ReinforcementStrategy()
+        h = _hand(Rank.FIVE, Rank.THREE)
+        up = Card(Rank.TEN, Suit.SPADES)
+        self.assertEqual(s.explain(h, up).action, s.recommend(h, up))
+
 
 if __name__ == "__main__":
     unittest.main()

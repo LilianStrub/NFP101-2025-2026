@@ -45,6 +45,18 @@ if TYPE_CHECKING:  # pragma: no cover
 
 SURRENDER_EV = -0.5
 
+#: Probabilité qu'une carte tirée soit une carte à 10 (sabot infini — voir
+#: mdp.py) : c'est exactement la question que pose l'assurance (le croupier
+#: a-t-il un 10 caché sous son As ?).
+_P_TEN = dict(CARD_PROBS)[10]
+
+#: Espérance de l'assurance (en unités de la mise d'assurance, payée 2:1) :
+#: gagnée (carte à 10 cachée, proba ``_P_TEN``) elle rapporte 2x la mise,
+#: perdue elle coûte 1x la mise. Toujours négative sous hypothèse de sabot
+#: infini (4/13 ≈ 30,8 % < 1/3) — c'est le résultat classique « ne jamais
+#: prendre l'assurance sans compter les cartes ».
+INSURANCE_EV = _P_TEN * 2.0 - (1.0 - _P_TEN) * 1.0
+
 
 @lru_cache(maxsize=None)
 def _ev_stand(total: int, dealer_up: int, hit_soft_17: bool) -> float:
@@ -204,3 +216,10 @@ class ExpectiminimaxSolver:
     def recommend(self, hand: Hand, dealer_up: Card) -> Action:
         """Interface compatible avec :class:`~blackjack.strategies.Strategy`."""
         return self.evaluate(hand, dealer_up).action
+
+    def take_insurance(self) -> bool:
+        """Faut-il prendre l'assurance ? Calculé, pas deviné (voir
+        ``INSURANCE_EV`` ci-dessus) : toujours négative sous hypothèse de
+        sabot infini, donc toujours refusée par un agent qui ne compte pas
+        les cartes."""
+        return INSURANCE_EV > 0

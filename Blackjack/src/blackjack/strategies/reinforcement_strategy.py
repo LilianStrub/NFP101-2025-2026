@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from ..ai.rl_agent import QLearningAgent
+from ..ai.solver import Decision
 from ..core import Action, Card, Hand
 from .base_strategy import Strategy
 
@@ -54,3 +55,11 @@ class ReinforcementStrategy(Strategy):
 
     def recommend(self, hand: Hand, dealer_up: Card) -> Action:
         return self._agent.recommend(hand, dealer_up)
+
+    def take_insurance(self) -> bool:
+        return self._agent.take_insurance()
+
+    def explain(self, hand: Hand, dealer_up: Card) -> Decision:
+        """Détail de la décision : Q-values connues pour cet état (ou repli
+        sur le solveur si l'état n'a jamais été rencontré à l'entraînement)."""
+        return self._agent.explain(hand, dealer_up)
